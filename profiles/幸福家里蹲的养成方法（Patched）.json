@@ -1,0 +1,69 @@
+{
+  "$schema": "version 1.0",
+  "game_name": "幸福家里蹲的养成方法（Patched）",
+  "process_name": "Game.exe",
+  "version": "1.0.0",
+  "description": "RPG Maker MV 游戏 - 幸福家里蹲的养成方法\n引擎: NW.js (Node-Webkit)\n生成时间: 2026-05-17 00:41:49\n\n【使用说明】\n1. 启动游戏后，在 game_tool 中加载此配置文件\n2. 使用'应用地址'解析指针链读取游戏数据\n3. RPG Maker MV 游戏数据存储在 V8 堆中，地址随GC变化\n4. 建议使用 AOB 特征码扫描来定位数据\n\n【本工具支持的功能】\n  - 内存扫描：搜索并修改游戏内存中的数值\n  - AOB 扫描：使用特征码定位特定代码/数据地址\n  - 存档编辑：直接修改 RPG Maker 存档文件\n  - 数值冻结：锁定特定内存地址的值",
+  "modules": [
+    {
+      "name": "Game.exe",
+      "description": "游戏核心模块"
+    },
+    {
+      "name": "ffmpeg.dll",
+      "description": "游戏核心模块"
+    },
+    {
+      "name": "nw.dll",
+      "description": "游戏核心模块"
+    },
+    {
+      "name": "nw_elf.dll",
+      "description": "游戏核心模块"
+    }
+  ],
+  "addresses": {
+    "gold": {
+      "description": "当前金钱（需要先通过内存扫描定位）",
+      "type": "int32",
+      "pointer_chain": [
+        {
+          "module": "nw.dll",
+          "offset": "0x00000000"
+        }
+      ],
+      "default_value": 0,
+      "min": 0
+    },
+    "party_hp_1": {
+      "description": "角色1 HP（需要先通过内存扫描定位）",
+      "type": "int32",
+      "pointer_chain": [
+        {
+          "module": "nw.dll",
+          "offset": "0x00000000"
+        }
+      ],
+      "default_value": 100,
+      "min": 0
+    },
+    "party_mp_1": {
+      "description": "角色1 MP（需要先通过内存扫描定位）",
+      "type": "int32",
+      "pointer_chain": [
+        {
+          "module": "nw.dll",
+          "offset": "0x00000000"
+        }
+      ],
+      "default_value": 50,
+      "min": 0
+    }
+  },
+  "signatures": [],
+  "save_info": {
+    "directory": "www/Save/",
+    "format": "RPG Maker MV save file (LZ-String compressed JSON)",
+    "files": "file1.rmmzsave, file2.rmmzsave, ..."
+  }
+}

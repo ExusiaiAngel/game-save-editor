@@ -1,0 +1,88 @@
+{
+  "$schema": "version 1.0",
+  "game_name": "示例游戏",
+  "process_name": "game.exe",
+  "version": "1.0.0",
+  "description": "示例游戏配置文件，展示完整的 profile 结构",
+  "modules": [
+    {
+      "name": "GameAssembly.dll",
+      "description": "游戏主模块"
+    },
+    {
+      "name": "UnityPlayer.dll",
+      "description": "Unity 引擎模块"
+    }
+  ],
+  "addresses": {
+    "hp": {
+      "description": "当前生命值",
+      "type": "int32",
+      "pointer_chain": [
+        { "module": "GameAssembly.dll", "offset": "0x01234567" },
+        { "offset": "0x48" },
+        { "offset": "0xA0" }
+      ],
+      "default_value": 100,
+      "min": 0,
+      "max": 9999
+    },
+    "mana": {
+      "description": "当前魔法值",
+      "type": "float",
+      "pointer_chain": [
+        { "module": "GameAssembly.dll", "offset": "0x01234567" },
+        { "offset": "0x48" },
+        { "offset": "0xA4" }
+      ],
+      "default_value": 50.0,
+      "min": 0.0,
+      "max": 500.0
+    },
+    "gold": {
+      "description": "金币数量",
+      "type": "int32",
+      "pointer_chain": [
+        { "module": "GameAssembly.dll", "offset": "0x02345678" },
+        { "offset": "0x10" },
+        { "offset": "0x20" }
+      ],
+      "default_value": 0,
+      "min": 0,
+      "max": 99999999
+    },
+    "player_name": {
+      "description": "玩家名称",
+      "type": "string",
+      "pointer_chain": [
+        { "module": "GameAssembly.dll", "offset": "0x02345678" },
+        { "offset": "0xE0" }
+      ]
+    },
+    "is_alive": {
+      "description": "存活状态",
+      "type": "bool",
+      "pointer_chain": [
+        { "module": "GameAssembly.dll", "offset": "0x01234567" },
+        { "offset": "0x50" }
+      ],
+      "default_value": true
+    }
+  },
+  "signatures": [
+    {
+      "name": "hp_code_ref",
+      "description": "定位生命值的代码引用",
+      "pattern": "48 8B 05 ?? ?? ?? ?? 89 10",
+      "module_scan": true,
+      "offset_to_value": 0
+    },
+    {
+      "name": "gold_write",
+      "description": "金币写入函数的特征码",
+      "pattern": "55 48 8B EC 48 83 EC 20 48 89 5D",
+      "module_scan": true,
+      "offset_to_value": 0
+    }
+  ]
+}

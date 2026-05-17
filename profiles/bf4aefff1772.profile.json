@@ -1,0 +1,18 @@
+{
+  "profile_id": "bf4aefff1772",
+  "game_name": "幸福家里蹲的养成方法（Patched）",
+  "game_dir": "E:\\BaiduNetdiskDownload\\幸福家里蹲的养成方法",
+  "engine": "rpg_mv",
+  "data_dir": "E:\\BaiduNetdiskDownload\\幸福家里蹲的养成方法\\www\\data",
+  "save_dir": "E:\\BaiduNetdiskDownload\\幸福家里蹲的养成方法\\www\\Save",
+  "last_save_path": "E:\\BaiduNetdiskDownload\\幸福家里蹲的养成方法\\www\\Save\\file1.rpgsave",
+  "exe_path": "E:\\BaiduNetdiskDownload\\幸福家里蹲的养成方法\\Game.exe",
+  "plugin_installed": true,
+  "plugin_port": 19999,
+  "tcp_enabled": true,
+  "cdp_port": 9222,
+  "auto_connect": true,
+  "auto_scan": true,
+  "created_at": 1779001274.8486338,
+  "updated_at": 1779028345.5604582
+}

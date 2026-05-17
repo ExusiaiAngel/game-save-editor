@@ -1,0 +1,64 @@
+{
+  "$schema": "version 1.0",
+  "game_name": "幸福家里蹲的养成方法 (Game)",
+  "process_name": "Game.exe",
+  "version": "1.0.0",
+  "description": "游戏: 幸福家里蹲的养成方法 (Game)\n可执行文件: Game.exe\n自动生成时间: 2026-05-17 11:42:13\n\n【使用说明】\n1. 使用「内存修改」标签页进行数值扫描与修改\n2. 使用「AOB 扫描」标签页进行特征码定位\n3. 使用「存档编辑」标签页修改存档文件\n\nRPG Maker MV 游戏数据存储在 V8 堆中，地址随 GC 变化，\n建议使用 AOB 特征码或多次扫描定位。",
+  "modules": [
+    {
+      "name": "Game.exe",
+      "description": "游戏核心模块"
+    },
+    {
+      "name": "nw_elf.dll",
+      "description": "游戏核心模块"
+    },
+    {
+      "name": "nw.dll",
+      "description": "游戏核心模块"
+    },
+    {
+      "name": "ffmpeg.dll",
+      "description": "游戏核心模块"
+    }
+  ],
+  "addresses": {
+    "gold": {
+      "description": "当前金钱（需通过内存扫描定位）",
+      "type": "int32",
+      "pointer_chain": [
+        {
+          "module": "Game.exe",
+          "offset": "0x00000000"
+        }
+      ],
+      "default_value": 0,
+      "min": 0
+    },
+    "hp_1": {
+      "description": "角色1 HP（需通过内存扫描定位）",
+      "type": "int32",
+      "pointer_chain": [
+        {
+          "module": "Game.exe",
+          "offset": "0x00000000"
+        }
+      ],
+      "default_value": 100,
+      "min": 0
+    },
+    "mp_1": {
+      "description": "角色1 MP（需通过内存扫描定位）",
+      "type": "int32",
+      "pointer_chain": [
+        {
+          "module": "Game.exe",
+          "offset": "0x00000000"
+        }
+      ],
+      "default_value": 50,
+      "min": 0
+    }
+  },
+  "signatures": []
+}

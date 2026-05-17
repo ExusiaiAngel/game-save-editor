@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+*.egg
+
+# 构建产物
+build/
+dist/
+*.spec.bak
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# 测试缓存
+.pytest_cache/
+.tox/
+
+# 大型 EXE（通过 GitHub Releases 分发，不提交到仓库）
+dist/*.exe
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# 临时文件
+*.bak
+*.tmp
+test_real_save.rpgsave
