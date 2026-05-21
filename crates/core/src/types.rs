@@ -17,7 +17,7 @@ use crate::error::GameToolError;
 ///
 /// 对应 Python 版 `ModifiableField`，是编辑器与格式处理器之间的
 /// 统一字段表示。UI 层修改 `save_value` 后，调用 `apply_field` 写回。
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct ModifiableField {
     /// 字段分类：如 "gold", "switch", "variable", "actor", "item", "weapon", "armor", "self_switch"
     pub category: String,
