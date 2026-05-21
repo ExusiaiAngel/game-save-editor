@@ -93,8 +93,6 @@ pub fn resolve_array(data: &Value) -> Vec<Value> {
                     Value::Object(sparse) => expand_sparse_dict(sparse),
                     _ => Vec::new(),
                 }
-            } else if map.contains_key("@c") {
-                Vec::new()
             } else {
                 Vec::new()
             }
@@ -113,8 +111,6 @@ pub fn resolve_array_flat(data: &Value) -> Vec<Option<Value>> {
                     Value::Object(sparse) => expand_sparse_dict_flat(sparse),
                     _ => Vec::new(),
                 }
-            } else if map.contains_key("@c") {
-                Vec::new()
             } else {
                 Vec::new()
             }

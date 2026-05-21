@@ -16,6 +16,12 @@ use crate::jsonex;
 
 pub struct RpgMakerFormat;
 
+impl Default for RpgMakerFormat {
+    fn default() -> Self {
+        Self
+    }
+}
+
 impl RpgMakerFormat {
     pub fn new() -> Self {
         Self
@@ -125,10 +131,10 @@ impl ISaveFormat for RpgMakerFormat {
             .and_then(|v| v.as_array())
             .map(|actors| {
                 actors.iter()
-                    .filter_map(|a| {
+                    .map(|a| {
                         let id = a.get("_actorId").and_then(|v| v.as_i64()).unwrap_or(0);
                         let name = a.get("_name").and_then(|v| v.as_str()).unwrap_or("???");
-                        Some(format!("{}:{}", id, name))
+                        format!("{}:{}", id, name)
                     })
                     .collect()
             })
