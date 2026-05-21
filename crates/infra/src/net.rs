@@ -47,12 +47,11 @@ impl TcpLineConnection {
     }
 
     /// 读取一行文本（去除尾部换行符）
-    #[must_use]
     pub fn recv_line(&mut self) -> Result<String, std::io::Error> {
         if let Some(ref mut reader) = self.reader {
             let mut line = String::new();
             reader.read_line(&mut line)?;
-            Ok(line.trim_end_matches(|c| c == '\n' || c == '\r').to_string())
+            Ok(line.trim_end_matches(['\n', '\r']).to_string())
         } else {
             Err(std::io::Error::new(
                 std::io::ErrorKind::NotConnected,

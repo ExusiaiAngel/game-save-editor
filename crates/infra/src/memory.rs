@@ -21,6 +21,7 @@ pub struct ModuleInfo {
 /// 进程句柄
 #[derive(Debug)]
 pub struct ProcessHandle {
+    #[expect(dead_code)]
     pid: u32,
 }
 

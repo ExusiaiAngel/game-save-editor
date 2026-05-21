@@ -105,8 +105,8 @@ pub struct GameState {
     /// 引擎特定扩展数据
     ///
     /// - RPG Maker: extensions["switches"], extensions["variables"],
-    ///              extensions["self_switches"], extensions["party"],
-    ///              extensions["items"], extensions["gold"], extensions["steps"]
+    ///   extensions["self_switches"], extensions["party"],
+    ///   extensions["items"], extensions["gold"], extensions["steps"]
     /// - Ren'Py: extensions["store"] (所有 store 变量)
     /// - Unreal: extensions["properties"] (内存读取属性)
     /// - Generic: extensions["memory_values"] (内存值快照)
