@@ -1,0 +1,19 @@
+[package]
+name = "game-tool-core"
+version = "0.1.0"
+edition = "2021"
+description = "Game Save Editor — 核心数据模型与通用工具"
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+anyhow.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+lz-str = "0.2"
+toml = "0.8"
+zip.workspace = true
+chrono = "0.4"
+
+[dev-dependencies]
+tempfile.workspace = true
