@@ -88,7 +88,7 @@ pub struct SaveSummary {
 /// 统一的游戏状态快照
 ///
 /// 通用字段直接放在结构体上，引擎特定字段存入 extensions。
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct GameState {
     /// 引擎类型
     #[serde(default = "default_engine")]

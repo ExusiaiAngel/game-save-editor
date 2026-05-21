@@ -1,6 +1,11 @@
+   Compiling game-tool-core v0.1.0 (D:\AiCode\game_tool\crates\core)
+   Compiling game-tool-rpgmaker v0.1.0 (D:\AiCode\game_tool\crates\engines\rpgmaker)
+   Compiling game-tool-detector v0.1.0 (D:\AiCode\game_tool\crates\detector)
    Compiling game-tool-renpy v0.1.0 (D:\AiCode\game_tool\crates\engines\renpy)
+   Compiling game-tool-generic v0.1.0 (D:\AiCode\game_tool\crates\engines\generic)
+   Compiling game-tool-unreal v0.1.0 (D:\AiCode\game_tool\crates\engines\unreal)
    Compiling game-tool-app v0.1.0 (D:\AiCode\game_tool\crates\app)
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.62s
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 6.66s
      Running unittests src\lib.rs (target\debug\deps\game_tool_app-de05b272a407f3f0.exe)
 
 running 0 tests
@@ -16,48 +21,48 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
      Running unittests src\lib.rs (target\debug\deps\game_tool_core-580e30148d95390b.exe)
 
 running 44 tests
-test config::tests::test_default_values ... ok
-test backup::tests::test_save_backup_nonexistent_file ... ok
+test config::tests::test_apply_env_vars_single ... ok
+test config::tests::test_serde_roundtrip_json ... ok
 test config::tests::test_apply_env_vars_overrides_file ... ok
 test config::tests::test_json_export_import ... ok
-test config::tests::test_serde_roundtrip_json ... ok
-test config::tests::test_apply_env_vars_single ... ok
+test error::tests::test_json_error_from ... ok
 test error::tests::test_archive_load_error_display ... ok
-test config::tests::test_serde_roundtrip_toml ... ok
+test error::tests::test_archive_save_error_display ... ok
 test error::tests::test_bridge_command_error_display ... ok
+test error::tests::test_bridge_connect_error_display ... ok
+test error::tests::test_game_detect_error_display ... ok
 test error::tests::test_format_detect_error_display ... ok
 test error::tests::test_io_error_from ... ok
+test backup::tests::test_save_backup_nonexistent_file ... ok
 test config::tests::test_json_file_compatibility ... ok
-test error::tests::test_archive_save_error_display ... ok
-test error::tests::test_game_detect_error_display ... ok
-test error::tests::test_bridge_connect_error_display ... ok
-test error::tests::test_json_error_from ... ok
-test error::tests::test_plugin_inject_error_display ... ok
+test config::tests::test_default_values ... ok
 test lzstring::tests::test_decompress_empty_input ... ok
-test lzstring::tests::test_decompress_garbage ... ok
-test config::tests::test_save_and_load ... ok
-test lzstring::tests::test_decompress_invalid_base64 ... ok
+test error::tests::test_plugin_inject_error_display ... ok
+test config::tests::test_serde_roundtrip_toml ... ok
 test lzstring::tests::test_empty_string ... ok
-test types::tests::test_game_info_defaults ... ok
-test lzstring::tests::test_roundtrip_simple ... ok
+test lzstring::tests::test_decompress_invalid_base64 ... ok
+test config::tests::test_toml_file_override ... ok
+test config::tests::test_save_and_load ... ok
 test lzstring::tests::test_json_roundtrip ... ok
-test lzstring::tests::test_roundtrip_special_chars ... ok
+test lzstring::tests::test_decompress_garbage ... ok
+test lzstring::tests::test_roundtrip_simple ... ok
 test lzstring::tests::test_roundtrip_unicode ... ok
-test types::tests::test_game_state_extensions_roundtrip ... ok
+test types::tests::test_bridge_command_deserialization ... ok
+test config::tests::test_env_override_full_chain ... ok
 test types::tests::test_bridge_command_serialization ... ok
+test lzstring::tests::test_very_large_string ... FAILED
+test lzstring::tests::test_roundtrip_special_chars ... ok
+test types::tests::test_game_info_defaults ... ok
 test types::tests::test_game_state_defaults ... ok
 test types::tests::test_game_info_roundtrip ... ok
-test types::tests::test_i32_keyed_map_serialization ... ok
+test types::tests::test_game_state_extensions_roundtrip ... ok
 test types::tests::test_game_state_roundtrip ... ok
-test lzstring::tests::test_very_large_string ... FAILED
-test types::tests::test_bridge_command_deserialization ... ok
 test types::tests::test_modifiable_field_serde_defaults_on_missing ... ok
+test types::tests::test_i32_keyed_map_serialization ... ok
 test types::tests::test_modifiable_field_defaults ... ok
 test types::tests::test_save_summary_defaults ... ok
 test types::tests::test_save_summary_roundtrip ... ok
 test backup::tests::test_save_backup_creates_file ... ok
-test config::tests::test_toml_file_override ... ok
-test config::tests::test_env_override_full_chain ... ok
 test lzstring::tests::test_large_string ... ok
 test backup::tests::test_save_backup_keep_zero_no_cleanup ... ok
 
@@ -65,7 +70,7 @@ failures:
 
 ---- lzstring::tests::test_very_large_string stdout ----
 
-thread 'lzstring::tests::test_very_large_string' (24772) panicked at crates\core\src\lzstring.rs:136:5:
+thread 'lzstring::tests::test_very_large_string' (27476) panicked at crates\core\src\lzstring.rs:136:5:
 assertion failed: input.len() > 1_000_000
 note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
 
