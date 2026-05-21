@@ -1,0 +1,16 @@
+[package]
+name = "game-tool-rpgmaker"
+version = "0.1.0"
+edition = "2021"
+description = "Game Save Editor — RPG Maker MV/MZ 存档解析、桥接、插件注入"
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+anyhow.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+lz-str.workspace = true
+
+game-tool-core = { path = "../../core" }
+game-tool-infra = { path = "../../infra", features = ["net"] }

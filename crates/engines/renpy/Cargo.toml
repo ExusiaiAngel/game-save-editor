@@ -1,0 +1,16 @@
+[package]
+name = "game-tool-renpy"
+version = "0.1.0"
+edition = "2021"
+description = "Game Save Editor — Ren'Py 存档解析、桥接、插件注入"
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+anyhow.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+zip.workspace = true
+
+game-tool-core = { path = "../../core" }
+game-tool-infra = { path = "../../infra", features = ["net"] }

@@ -1,0 +1,15 @@
+[package]
+name = "game-tool-unreal"
+version = "0.1.0"
+edition = "2021"
+description = "Game Save Editor — Unreal Engine GVAS 解析与内存操作"
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+anyhow.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+
+game-tool-core = { path = "../../core" }
+game-tool-infra = { path = "../../infra", features = ["memory"] }

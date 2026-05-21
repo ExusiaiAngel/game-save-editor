@@ -32,3 +32,8 @@ Thumbs.db
 *.bak
 *.tmp
 test_real_save.rpgsave
+
+# Rust
+/target/
+**/*.rs.bk
+Cargo.lock

@@ -1,0 +1,25 @@
+[package]
+name = "game-tool-app"
+version = "0.1.0"
+edition = "2021"
+description = "Game Save Editor — 应用入口与编排层"
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+anyhow.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+tracing-subscriber = { workspace = true, features = ["json", "env-filter"] }
+tracing-log = "0.2"
+walkdir.workspace = true
+tempfile.workspace = true
+
+game-tool-core = { path = "../core" }
+game-tool-infra = { path = "../infra", features = ["net", "memory"] }
+game-tool-rpgmaker = { path = "../engines/rpgmaker" }
+game-tool-renpy = { path = "../engines/renpy" }
+game-tool-unreal = { path = "../engines/unreal" }
+game-tool-generic = { path = "../engines/generic" }
+game-tool-detector = { path = "../detector" }

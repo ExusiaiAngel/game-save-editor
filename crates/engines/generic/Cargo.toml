@@ -1,0 +1,15 @@
+[package]
+name = "game-tool-generic"
+version = "0.1.0"
+edition = "2021"
+description = "Game Save Editor — 通用 JSON 存档解析与内存操作"
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+anyhow.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+
+game-tool-core = { path = "../../core" }
+game-tool-infra = { path = "../../infra", features = ["memory"] }
