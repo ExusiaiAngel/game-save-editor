@@ -1,22 +1,26 @@
-//! game-tool-app: 应用入口
+//! Game Save Editor — Rust + egui 版本
+//!
+//! 多功能游戏存档编辑器，支持 RPG Maker MV/MZ, Ren'Py, Unreal Engine, 通用 JSON。
 
-use anyhow::Context;
+mod registry;
 
-fn main() -> anyhow::Result<()> {
-    // 桥接 log crate 到 tracing
-    tracing_log::LogTracer::init()
-        .context("初始化 tracing-log 桥接失败")?;
+use tracing_subscriber::EnvFilter;
 
-    // 初始化 tracing-subscriber: JSON 格式 + env-filter
+fn main() {
+    tracing_log::LogTracer::init().ok();
     tracing_subscriber::fmt()
+        .with_env_filter(EnvFilter::from_default_env())
         .json()
-        .with_env_filter(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
-        )
         .init();
 
-    tracing::info!("游戏存档编辑器启动");
+    tracing::info!("Game Save Editor 启动 (Rust)");
 
-    Ok(())
+    let _formats = registry::FormatRegistry::default();
+    tracing::info!(
+        "已注册格式处理器: {}",
+        _formats.list_formats().join(", ")
+    );
+
+    // TODO: egui GUI (后续 Plan 实施)
+    tracing::info!("运行中...");
 }

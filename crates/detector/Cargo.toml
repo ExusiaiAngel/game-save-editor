@@ -13,3 +13,6 @@ thiserror.workspace = true
 tracing.workspace = true
 game-tool-core = { path = "../core" }
 game-tool-infra = { path = "../infra", features = ["memory"] }
+
+[dev-dependencies]
+tempfile.workspace = true
