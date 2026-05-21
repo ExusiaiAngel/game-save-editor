@@ -1,0 +1,22 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/infra",
+    "crates/core",
+    "crates/formats",
+    "crates/bridges",
+    "crates/detector",
+    "crates/app",
+]
+
+[workspace.dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["full"] }
+anyhow = "1"
+thiserror = "2"
+tracing = "0.1"
+tracing-subscriber = "0.3"
+zip = "2"
+walkdir = "2"
+tempfile = "3"
