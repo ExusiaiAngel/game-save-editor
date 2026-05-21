@@ -13,3 +13,7 @@ tracing.workspace = true
 
 game-tool-core = { path = "../../core" }
 game-tool-infra = { path = "../../infra", features = ["memory"] }
+once_cell = "1.21.4"
+
+[dev-dependencies]
+tempfile.workspace = true

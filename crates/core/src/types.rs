@@ -65,7 +65,7 @@ fn default_max_val() -> i32 {
 /// 存档摘要（格式无关）
 ///
 /// 对应 Python 版 `SaveSummary`，用于 UI 概览展示。
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct SaveSummary {
     #[serde(default)]
     pub gold: i32,
