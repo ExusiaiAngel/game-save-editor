@@ -2,12 +2,10 @@
 resolver = "2"
 members = [
     "crates/core",
-    "crates/infra",
     "crates/engines/rpgmaker",
     "crates/engines/renpy",
     "crates/engines/unreal",
     "crates/engines/generic",
-    "crates/detector",
     "crates/app",
 ]
 

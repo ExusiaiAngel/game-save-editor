@@ -7,8 +7,7 @@ use std::path::Path;
 
 use serde_json::Value;
 use game_tool_core::{
-    ISaveFormat, ModifiableField, SaveSummary,
-    error::GameToolError,
+    ISaveFormat, ModifiableField, SaveSummary, GameToolError,
     backup,
 };
 
@@ -154,9 +153,6 @@ impl ISaveFormat for RpgMakerFormat {
     fn scan_fields(&self, data: &Value, game_dir: &str) -> Vec<ModifiableField> {
         crate::scanner::scan_all_modifiable(game_dir, Some(data), None)
             .fields
-            .into_iter()
-            .map(|f| crate::scanner::to_modifiable_field(&f))
-            .collect()
     }
 
     fn apply_field(&self, data: &mut Value, field: &ModifiableField) -> Result<(), GameToolError> {

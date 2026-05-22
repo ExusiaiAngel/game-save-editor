@@ -210,7 +210,7 @@ fn guess_category(key: &str) -> String {
     "general".into()
 }
 
-static FIELD_NAME_MAP: once_cell::sync::Lazy<HashMap<&str, &str>> = once_cell::sync::Lazy::new(|| {
+static FIELD_NAME_MAP: std::sync::LazyLock<HashMap<&str, &str>> = std::sync::LazyLock::new(|| {
     HashMap::from([
         ("gold", "金币"), ("money", "金钱"), ("hp", "生命值"), ("health", "生命"),
         ("mp", "魔力值"), ("level", "等级"), ("exp", "经验值"), ("name", "名称"),

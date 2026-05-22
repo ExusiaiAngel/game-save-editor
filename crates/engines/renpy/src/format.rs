@@ -70,8 +70,8 @@ impl ISaveFormat for RenPyFormat {
         data.insert("_format".into(), Value::String("renpy".into()));
         data.insert("_meta".into(), meta);
         data.insert("_extra_info".into(), Value::String(extra_info));
-        data.insert("_log".into(), Value::String(base64_encode(&log_bytes)));
-        data.insert("_screenshot".into(), Value::String(base64_encode(&screenshot)));
+        data.insert("_log".into(), Value::String(game_tool_core::base64::encode(&log_bytes)));
+        data.insert("_screenshot".into(), Value::String(game_tool_core::base64::encode(&screenshot)));
         data.insert("_renpy_version".into(), Value::String(renpy_version));
 
         Ok(Value::Object(data))
@@ -102,14 +102,14 @@ impl ISaveFormat for RenPyFormat {
             std::io::Write::write_all(&mut writer, extra_info.as_bytes()).ok();
 
             if !log_b64.is_empty() {
-                if let Some(decoded) = base64_decode(log_b64) {
+                if let Some(decoded) = game_tool_core::base64::decode(log_b64) {
                     writer.start_file("log", options)
                         .map_err(|e| GameToolError::ArchiveSaveError(e.to_string()))?;
                     std::io::Write::write_all(&mut writer, &decoded).ok();
                 }
             }
             if !screenshot_b64.is_empty() {
-                if let Some(decoded) = base64_decode(screenshot_b64) {
+                if let Some(decoded) = game_tool_core::base64::decode(screenshot_b64) {
                     writer.start_file("screenshot.png", options)
                         .map_err(|e| GameToolError::ArchiveSaveError(e.to_string()))?;
                     std::io::Write::write_all(&mut writer, &decoded).ok();
@@ -215,45 +215,6 @@ impl ISaveFormat for RenPyFormat {
     }
 }
 
-fn base64_encode(data: &[u8]) -> String {
-    let chars = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-    let mut result = String::new();
-    for chunk in data.chunks(3) {
-        let b = |i: usize| chunk.get(i).copied().unwrap_or(0) as u32;
-        let n = (b(0) << 16) | (b(1) << 8) | b(2);
-        result.push(chars[((n >> 18) & 0x3F) as usize] as char);
-        result.push(chars[((n >> 12) & 0x3F) as usize] as char);
-        result.push(if chunk.len() > 1 { chars[((n >> 6) & 0x3F) as usize] } else { b'=' } as char);
-        result.push(if chunk.len() > 2 { chars[(n & 0x3F) as usize] } else { b'=' } as char);
-    }
-    result
-}
-
-fn base64_decode(input: &str) -> Option<Vec<u8>> {
-    let input = input.trim_end_matches('=');
-    let mut result = Vec::new();
-    let mut buf = 0u32;
-    let mut bits = 0;
-    for c in input.chars() {
-        let val = match c {
-            'A'..='Z' => c as u32 - 'A' as u32,
-            'a'..='z' => c as u32 - 'a' as u32 + 26,
-            '0'..='9' => c as u32 - '0' as u32 + 52,
-            '+' => 62,
-            '/' => 63,
-            _ => return None,
-        };
-        buf = (buf << 6) | val;
-        bits += 6;
-        if bits >= 8 {
-            bits -= 8;
-            result.push((buf >> bits) as u8);
-            buf &= (1 << bits) - 1;
-        }
-    }
-    Some(result)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -324,3 +285,4 @@ mod tests {
         assert!(found.is_some());
     }
 }
+

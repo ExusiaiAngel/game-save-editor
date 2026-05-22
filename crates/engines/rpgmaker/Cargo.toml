@@ -13,5 +13,4 @@ tracing.workspace = true
 lz-str.workspace = true
 
 game-tool-core = { path = "../../core" }
-game-tool-infra = { path = "../../infra", features = ["net"] }
 tempfile.workspace = true

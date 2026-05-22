@@ -13,7 +13,4 @@ tracing.workspace = true
 zip.workspace = true
 
 game-tool-core = { path = "../../core" }
-game-tool-infra = { path = "../../infra", features = ["net"] }
-
-[dev-dependencies]
 tempfile.workspace = true

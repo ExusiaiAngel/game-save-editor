@@ -43,7 +43,7 @@ impl ISaveFormat for UnrealGVASFormat {
 
         let mut data = serde_json::Map::new();
         data.insert("_format".into(), Value::String("unreal_gvas".into()));
-        data.insert("_raw".into(), Value::String(base64_encode(&raw)));
+        data.insert("_raw".into(), Value::String(game_tool_core::base64::encode(&raw)));
         data.insert("_header".into(), Value::Object(header));
         data.insert("_props".into(), Value::Object(props));
 
@@ -55,7 +55,7 @@ impl ISaveFormat for UnrealGVASFormat {
         let _ = backup::save_backup(path, 10);
         if let Some(raw) = data.get("_raw")
             .and_then(|v| v.as_str())
-            .and_then(base64_decode)
+            .and_then(game_tool_core::base64::decode)
         {
             fs::write(path, &raw)
                 .map_err(|e| GameToolError::ArchiveSaveError(e.to_string()))?;
@@ -239,7 +239,7 @@ impl UnrealGVASFormat {
     }
 }
 
-static KNOWN_NAMES: once_cell::sync::Lazy<HashMap<&str, &str>> = once_cell::sync::Lazy::new(|| {
+static KNOWN_NAMES: std::sync::LazyLock<HashMap<&str, &str>> = std::sync::LazyLock::new(|| {
     HashMap::from([
         ("Gold", "金币"), ("Money", "金钱"), ("Health", "生命值"), ("HP", "HP"),
         ("MaxHealth", "最大生命"), ("Level", "等级"), ("Experience", "经验值"),
@@ -247,41 +247,6 @@ static KNOWN_NAMES: once_cell::sync::Lazy<HashMap<&str, &str>> = once_cell::sync
         ("PlayerName", "玩家名"), ("SaveSlotName", "存档槽名"),
     ])
 });
-
-fn base64_encode(data: &[u8]) -> String {
-    let chars = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-    let mut result = String::new();
-    for chunk in data.chunks(3) {
-        let b = |i: usize| chunk.get(i).copied().unwrap_or(0) as u32;
-        let n = (b(0) << 16) | (b(1) << 8) | b(2);
-        result.push(chars[((n >> 18) & 0x3F) as usize] as char);
-        result.push(chars[((n >> 12) & 0x3F) as usize] as char);
-        result.push(if chunk.len() > 1 { chars[((n >> 6) & 0x3F) as usize] } else { b'=' } as char);
-        result.push(if chunk.len() > 2 { chars[(n & 0x3F) as usize] } else { b'=' } as char);
-    }
-    result
-}
-
-fn base64_decode(input: &str) -> Option<Vec<u8>> {
-    let input = input.trim_end_matches('=');
-    let mut result = Vec::new();
-    let mut buf = 0u32;
-    let mut bits = 0;
-    for c in input.chars() {
-        let val = match c {
-            'A'..='Z' => c as u32 - 'A' as u32,
-            'a'..='z' => c as u32 - 'a' as u32 + 26,
-            '0'..='9' => c as u32 - '0' as u32 + 52,
-            '+' => 62,
-            '/' => 63,
-            _ => return None,
-        };
-        buf = (buf << 6) | val;
-        bits += 6;
-        if bits >= 8 { bits -= 8; result.push((buf >> bits) as u8); buf &= (1 << bits) - 1; }
-    }
-    Some(result)
-}
 
 #[cfg(test)]
 mod tests {
@@ -330,3 +295,4 @@ mod tests {
         assert!(fmt.find_data_dir(&dir.path().to_string_lossy()).is_some());
     }
 }
+

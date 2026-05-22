@@ -52,6 +52,9 @@ pub struct ModifiableField {
     /// 用户是否编辑过
     #[serde(default)]
     pub dirty: bool,
+    /// RPG Maker 专用: 关联的金币变量ID（某些游戏用变量存金币）
+    #[serde(default)]
+    pub gold_var_id: i32,
 }
 
 fn default_field_type() -> String {
@@ -323,6 +326,7 @@ mod tests {
             max_val: 1,
             description: "测试开关".into(),
             dirty: false,
+            gold_var_id: 0,
         };
 
         let json = serde_json::to_string(&field).expect("序列化失败");
