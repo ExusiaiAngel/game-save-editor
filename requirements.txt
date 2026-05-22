@@ -1,7 +1,0 @@
-pyside6>=6.5.0
-lzstring>=1.0.4
-websocket-client>=1.0.0
-# 通用引擎模块（可选）
-frida>=17.0.0
-frida-tools>=14.0.0
-pymem>=1.14.0
