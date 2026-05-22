@@ -32,6 +32,7 @@ impl FormatRegistry {
         exts
     }
 
+    #[allow(dead_code)]
     pub fn list_formats(&self) -> Vec<&str> {
         self.formats.iter().map(|f| f.name()).collect()
     }

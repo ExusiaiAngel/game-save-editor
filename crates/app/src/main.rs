@@ -6,7 +6,6 @@ use std::path::Path;
 use tracing_subscriber::EnvFilter;
 use game_tool_core::ISaveFormat;
 use game_tool_core::GameBridge;
-use rust_embed::EmbeddedFile;
 
 #[derive(rust_embed::RustEmbed)]
 #[folder = "../../profiles"]
@@ -24,7 +23,8 @@ fn main() {
     tracing_subscriber::fmt()
         .with_env_filter(EnvFilter::from_default_env())
         .with_target(false)
-        .init();
+        .try_init()
+        .ok();
 
     let args: Vec<String> = std::env::args().collect();
     let game_dir = args.iter().position(|a| a == "--game-dir")
@@ -36,18 +36,15 @@ fn main() {
         .and_then(|s| s.parse().ok())
         .unwrap_or(19999);
 
-    println!("=== Game Save Editor CLI Test ===");
-    println!();
+    println!("=== Game Save Editor v{} ===\n", env!("CARGO_PKG_VERSION"));
 
     match &game_dir {
         Some(dir) => {
             println!("游戏目录: {}", dir);
 
-            // 引擎检测
             let engine = game_tool_detector::detect_by_filesystem(dir);
             println!("检测引擎: {:?}", engine);
 
-            // 加载游戏数据
             let config = game_tool_rpgmaker::gamedata::scan_game_directory(dir);
             if config.data_loaded {
                 println!("游戏标题: {}", config.game_title);
@@ -58,10 +55,8 @@ fn main() {
                 println!("物品数量: {}", config.item_names.len());
             }
 
-            // 加载存档
             let save_dir = find_save_dir(dir);
-            println!();
-            println!("存档目录: {}", save_dir.display());
+            println!("\n存档目录: {}", save_dir.display());
             if let Some(save_path) = find_latest_save(&save_dir) {
                 println!("存档文件: {}", save_path.display());
                 let fmt = game_tool_rpgmaker::format::RpgMakerFormat::new();
@@ -82,8 +77,7 @@ fn main() {
                             println!("队员:    {}", members.iter().map(|s| s.as_str()).collect::<Vec<_>>().join(", "));
                         }
 
-                        println!();
-                        println!("--- 可修改字段 (前20条) ---");
+                        println!("\n--- 可修改字段 (前20条) ---");
                         let fields = fmt.scan_fields(&data, dir);
                         for (i, f) in fields.iter().take(20).enumerate() {
                             println!(
@@ -99,19 +93,14 @@ fn main() {
                 println!("未找到存档文件");
             }
 
-            // TCP 桥接测试
             if do_tcp {
-                println!();
-                println!("--- TCP 桥接测试 (端口 {}) ---", port);
+                println!("\n--- TCP 桥接测试 (端口 {}) ---", port);
                 let mut bridge = game_tool_rpgmaker::tcp::RpgMakerTcpBridge::new("127.0.0.1", port);
                 match bridge.connect() {
                     Ok(()) => {
                         println!("TCP 连接成功!");
-                        use game_tool_core::{GameBridge, BridgeCommand};
-                        match bridge.execute(&BridgeCommand::ReadAll) {
-                            Ok(state) => {
-                                println!("实时状态: {}", state);
-                            }
+                        match bridge.execute(&game_tool_core::BridgeCommand::ReadAll) {
+                            Ok(state) => println!("实时状态: {}", state),
                             Err(e) => println!("读取状态失败: {}", e),
                         }
                         bridge.disconnect();
@@ -121,11 +110,12 @@ fn main() {
             }
         }
         None => {
-            println!("=== Game Save Editor v{} ===", env!("CARGO_PKG_VERSION"));
-            println!();
             println!("内嵌配置: {} 个 profiles", ProfilesAsset::iter().count());
             println!();
             print_usage();
+            println!();
+            println!("按 Enter 键退出...");
+            let _ = std::io::stdin().read_line(&mut String::new());
         }
     }
 }
