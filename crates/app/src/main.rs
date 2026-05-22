@@ -6,6 +6,19 @@ use std::path::Path;
 use tracing_subscriber::EnvFilter;
 use game_tool_core::ISaveFormat;
 use game_tool_core::GameBridge;
+use rust_embed::EmbeddedFile;
+
+#[derive(rust_embed::RustEmbed)]
+#[folder = "../../profiles"]
+struct ProfilesAsset;
+
+fn print_usage() {
+    println!("用法: GameSaveEditor --game-dir <路径> [--tcp] [--port <端口>]");
+    println!();
+    println!("示例:");
+    println!("  GameSaveEditor --game-dir \"D:\\Games\\MyRPGMaker\"");
+    println!("  GameSaveEditor --game-dir \"D:\\Games\\MyRPGMaker\" --tcp");
+}
 
 fn main() {
     tracing_subscriber::fmt()
@@ -108,11 +121,11 @@ fn main() {
             }
         }
         None => {
-            println!("用法: game-tool-app --game-dir <路径> [--tcp] [--port <端口>]");
+            println!("=== Game Save Editor v{} ===", env!("CARGO_PKG_VERSION"));
             println!();
-            println!("示例:");
-            println!("  game-tool-app --game-dir \"E:\\BaiduNetdiskDownload\\幸福家里蹲的养成方法\"");
-            println!("  game-tool-app --game-dir \"E:\\...\" --tcp");
+            println!("内嵌配置: {} 个 profiles", ProfilesAsset::iter().count());
+            println!();
+            print_usage();
         }
     }
 }

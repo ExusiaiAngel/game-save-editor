@@ -1,8 +1,18 @@
 [package]
-name = "game-tool-app"
-version = "0.1.0"
+name = "GameSaveEditor"
+version = "1.0.0"
 edition = "2021"
-description = "Game Save Editor — 应用入口与编排层"
+description = "Game Save Editor — 多格式游戏存档编辑器"
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+strip = true
+
+[[bin]]
+name = "GameSaveEditor"
+path = "src/main.rs"
 
 [dependencies]
 serde.workspace = true
@@ -15,6 +25,7 @@ tracing-subscriber = { workspace = true, features = ["json", "env-filter"] }
 tracing-log = "0.2"
 walkdir.workspace = true
 tempfile.workspace = true
+rust-embed = "8"
 
 game-tool-core = { path = "../core" }
 game-tool-infra = { path = "../infra", features = ["net", "memory"] }
