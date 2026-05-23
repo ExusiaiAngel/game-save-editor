@@ -20,7 +20,7 @@
 | RPG Maker MZ | ✅ | ✅ | ❌ | JSON + LZString |
 | NW.js | ✅ | ✅ | ❌ | JSON + LZString |
 | Ren'Py | ✅ | ✅ | ❌ | Pickle + JSON |
-| Unreal Engine | ✅ (只读) | ❌ | ✅ | GVAS |
+| Unreal Engine | ✅ | ❌ | ✅ | GVAS |
 | Unity (Mono) | ✅ | ❌ | ✅ | 通用 JSON |
 | Unity (IL2CPP) | ✅ | ❌ | ✅ | 通用 JSON |
 | Godot | ✅ | ❌ | ✅ | 通用 JSON |

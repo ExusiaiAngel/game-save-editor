@@ -92,7 +92,7 @@ Memory crate 直接使用 windows-sys 进行 Win32 API 调用。
 |-------|:---:|:---:|------|
 | **rpgmaker** | ✅ | ✅ | `format.rs` (JSON+LZString), `tcp.rs` (GameBridgeServer.js JS 插件), `scanner.rs` (游戏目录扫描), `jsonex.rs` (JSONEx 格式) |
 | **renpy** | ✅ | ✅ | `format.rs` (.save ZIP 格式), `bridge.rs` (JSON-over-TCP Python 插件) |
-| **unreal** | ✅ (只读) | ❌ | `format.rs` (GVAS 二进制格式解析) |
+| **unreal** | ✅ | ❌ | `format.rs` (GVAS 二进制读写) |
 | **generic** | ✅ | ❌ | `format.rs` (通用 JSON 扁平化/反扁平化) |
 | **memory** | ❌ | ✅ | `scanner.rs` (值扫描引擎), `region.rs` (VirtualQueryEx), `bridge.rs` (UniversalMemoryBridge), `process.rs` (进程枚举), `module.rs` (模块枚举) |
 
@@ -119,7 +119,7 @@ Ren'Py 视觉小说引擎适配：
 Unreal Engine 存档适配：
 
 - **存档格式**：GVAS 二进制格式（Unreal 的 `FBufferArchive` + `FObjectAndNameAsStringProxyArchive`）
-- **当前状态**：只读解析，支持 IntProperty、FloatProperty、StrProperty、BoolProperty、StructProperty 等常见属性类型
+- **当前状态**：支持读写，解析支持 IntProperty、FloatProperty、StrProperty、BoolProperty、StructProperty 等常见属性类型；写入基于原始二进制替换属性段（保留头部和尾部不变）
 - **无实时编辑**：不支持 TCP 桥接，仅通过内存扫描进行修改
 
 #### game-tool-generic
