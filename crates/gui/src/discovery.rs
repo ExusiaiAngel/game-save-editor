@@ -1,18 +1,35 @@
+//! 存档文件发现模块：在游戏目录中递归搜索匹配的存档文件。
+//!
+//! 搜索策略：
+//! 1. 优先查找格式自身定义的 data_dir（如 RPG Maker 的 www/save）
+//! 2. 回退扫描常见的存档子目录名称
+//! 3. 按文件修改时间降序排列（最新的在前）
+
 use game_tool_core::ISaveFormat;
 use std::collections::HashSet;
 use std::fs;
 use std::path::Path;
 
+/// 在游戏目录中搜索匹配格式的所有存档文件。
+///
+/// 搜索逻辑：
+/// 1. 如果格式定义了 find_data_dir()，将该目录加入搜索列表
+/// 2. 扫描常见存档目录：www/save, save, saves, game/saves, Saved/SaveGames 等
+/// 3. 过滤排除项：备份文件、配置/全局文件
+/// 4. 按扩展名匹配，使用 HashSet 去重
+/// 5. 按修改时间降序排列（最近修改的排最前）
 pub fn find_save_files(game_dir: &str, format: &dyn ISaveFormat) -> Vec<String> {
     let exts = format.extensions();
-    let mut seen = HashSet::new();
+    let mut seen = HashSet::new();  // 去重集合，避免同一文件被重复添加
     let mut files = Vec::new();
 
+    // 收集所有可能的搜索目录
     let mut search_dirs = Vec::new();
     if let Some(d) = format.find_data_dir(game_dir) {
         search_dirs.push(d);
     }
 
+    // 扫描常见的存档子目录名称（大小写分别尝试）
     let base = Path::new(game_dir);
     for sub in &[
         "www/save",
@@ -32,18 +49,22 @@ pub fn find_save_files(game_dir: &str, format: &dyn ISaveFormat) -> Vec<String> 
         }
     }
 
+    // 遍历每个搜索目录，收集匹配的存档文件
     for dir in &search_dirs {
         if let Ok(entries) = fs::read_dir(dir) {
             for entry in entries.flatten() {
                 let path = entry.path();
                 if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+                    // 排除备份文件（.bak.xxx 或 .bak 后缀）
                     if name.contains(".bak.")
                         || name.to_lowercase().ends_with(".bak")
+                        // 排除 RPG Maker 的配置文件和全局存档（不是玩家存档）
                         || name.to_lowercase() == "config.rpgsave"
                         || name.to_lowercase() == "global.rpgsave"
                     {
                         continue;
                     }
+                    // 按扩展名匹配（大小写不敏感）
                     for ext in &exts {
                         if name.to_lowercase().ends_with(&ext.to_lowercase()) {
                             let canonical = path.to_string_lossy().to_string();
@@ -57,6 +78,7 @@ pub fn find_save_files(game_dir: &str, format: &dyn ISaveFormat) -> Vec<String> 
         }
     }
 
+    // 按修改时间降序排列，最近修改的存档排在最前面
     files.sort_by(|a, b| {
         let ma = fs::metadata(a).and_then(|m| m.modified()).ok();
         let mb = fs::metadata(b).and_then(|m| m.modified()).ok();

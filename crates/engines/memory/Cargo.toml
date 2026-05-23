@@ -1,0 +1,28 @@
+[package]
+name = "game-tool-memory"
+version = "0.1.0"
+edition = "2021"
+description = "Game Save Editor — 通用 Windows 进程内存操作桥接"
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+anyhow.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+rayon = "1"
+
+game-tool-core = { path = "../../core" }
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.59", features = [
+    "Win32_System_ProcessStatus",
+    "Win32_System_Threading",
+    "Win32_System_Memory",
+    "Win32_System_Diagnostics_ToolHelp",
+    "Win32_Foundation",
+    "Win32_System_LibraryLoader",
+] }
+
+[dev-dependencies]
+tempfile.workspace = true

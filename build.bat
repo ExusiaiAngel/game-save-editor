@@ -16,7 +16,6 @@ if %errorlevel% neq 0 (
 
 echo Copying binary...
 copy /Y "target\release\GameSaveEditor.exe" "dist\GameSaveEditor.exe"
-copy /Y "target\release\GameSaveEditor.pdb" "dist\GameSaveEditor.pdb" 2>nul
 
 echo ===========================================
 echo Build Complete!

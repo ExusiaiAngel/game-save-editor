@@ -1,3 +1,11 @@
+//! 边界与性能测试。
+//!
+//! 验证 GUI 组件在高负载、大规模数据下的行为：
+//! - 5000/10000 个字段的大集合操作（筛选、分类、dirty 统计）不应崩溃
+//! - 引擎显示名称对所有变体均覆盖
+//! - 工厂方法在所有引擎类型下返回一致结果
+//! - JSON Value 边界的 null/bool/number/string 转换
+
 mod common;
 
 use game_tool_core::detector::EngineType;
@@ -6,8 +14,8 @@ use game_tool_gui::factory;
 use serde_json::Value;
 use std::time::Instant;
 
-// ─── P1: 5000 fields won't panic ──────────────────────────────────
-
+/// 创建用于边界测试的模拟字段
+/// 设置最小化的有效字段，只保留关键属性
 fn make_mock_field(id: usize, category: &str) -> ModifiableField {
     ModifiableField {
         category: category.into(),
@@ -23,6 +31,7 @@ fn make_mock_field(id: usize, category: &str) -> ModifiableField {
     }
 }
 
+/// 5000 个字段的大型集合操作不应崩溃：筛选、计数、修改脏标记后重新计数
 #[test]
 fn test_large_field_set_no_panic() {
     let mut fields = Vec::new();
@@ -45,8 +54,7 @@ fn test_large_field_set_no_panic() {
     assert_eq!(new_dirty, 1);
 }
 
-// ─── P2: 10000 field BTreeMap categorization ─────────────────────
-
+/// 10000 个字段（4 个分类各 2500 个）的 BTreeMap 分类统计应在 1 秒内完成
 #[test]
 fn test_large_category_grouping() {
     let mut fields = Vec::new();
@@ -85,8 +93,7 @@ fn test_large_category_grouping() {
     );
 }
 
-// ─── P4: engine display names coverage ────────────────────────────
-
+/// 引擎类型到显示名称的映射辅助函数（用于覆盖测试）
 fn engine_display_name(engine: &EngineType) -> &str {
     match engine {
         EngineType::RpgMakerMv => "RPG Maker MV",
@@ -101,6 +108,7 @@ fn engine_display_name(engine: &EngineType) -> &str {
     }
 }
 
+/// 所有引擎类型变体都应有非空的显示名称
 #[test]
 fn test_all_engine_variants_have_display_names() {
     let engines = vec![
@@ -121,8 +129,8 @@ fn test_all_engine_variants_have_display_names() {
     }
 }
 
-// ─── P5: factory produce consistent results across engine types ────
-
+/// 工厂方法 create_format 在所有引擎类型下返回一致结果：
+/// 已知引擎返回 Some 且 extensions/name 非空，未知引擎返回 None
 #[test]
 fn test_create_format_all_engines_consistent() {
     let engines = vec![
@@ -163,21 +171,20 @@ fn test_create_format_all_engines_consistent() {
     }
 }
 
+/// 所有已知引擎都应支持桥接创建，未知引擎返回 None
 #[test]
-fn test_create_bridge_rpg_and_renpy_only() {
+fn test_create_bridge_all_supported_except_unknown() {
     let supported = vec![
         EngineType::RpgMakerMv,
         EngineType::RpgMakerMz,
         EngineType::NwJs,
         EngineType::RenPy,
-    ];
-    let unsupported = vec![
         EngineType::Unreal,
         EngineType::UnityMono,
         EngineType::UnityIl2Cpp,
         EngineType::Godot,
-        EngineType::Unknown,
     ];
+    let unsupported = vec![EngineType::Unknown];
 
     for engine in &supported {
         let bridge = factory::create_bridge(engine, "localhost", 8080);
@@ -197,8 +204,7 @@ fn test_create_bridge_rpg_and_renpy_only() {
     }
 }
 
-// ─── Value boundary tests ─────────────────────────────────────────
-
+/// JSON Value 边界测试：Null/Bool/Number/String 的基本类型转换
 #[test]
 fn test_value_display_edge_cases() {
     let null_val = Value::Null;

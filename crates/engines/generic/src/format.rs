@@ -1,4 +1,10 @@
-//! 通用 JSON 存档格式处理器
+//! 通用 JSON 存档格式处理器。
+//!
+//! 为未识别的游戏引擎提供通用的 JSON 存档读取/写入功能。
+//! 核心流程：
+//! 1. 加载时将 JSON 扁平化为"路径.键"格式存入 `_flat`
+//! 2. 修改时通过 `_flat` 中的键更新对应值
+//! 3. 保存时将扁平数据还原为嵌套 JSON 结构写回文件
 
 use std::collections::HashMap;
 use std::fs;
@@ -7,6 +13,9 @@ use std::path::Path;
 use game_tool_core::{backup, error::GameToolError, ISaveFormat, ModifiableField, SaveSummary};
 use serde_json::{Map, Value};
 
+/// 通用 JSON 存档格式处理器。
+///
+/// 支持任意 JSON 结构的存档文件，通过扁平化/反扁平化实现字段编辑。
 pub struct GenericJsonFormat;
 
 impl Default for GenericJsonFormat {
@@ -16,31 +25,43 @@ impl Default for GenericJsonFormat {
 }
 
 impl GenericJsonFormat {
+    /// 创建新的通用 JSON 格式处理器
     pub fn new() -> Self {
         Self
     }
 }
 
 impl ISaveFormat for GenericJsonFormat {
+    /// 返回格式名称："JSON (通用)"
     fn name(&self) -> &str {
         "JSON (通用)"
     }
+    /// 返回支持的存档文件扩展名列表：[".json"]
     fn extensions(&self) -> Vec<String> {
         vec![".json".into()]
     }
+    /// 返回引擎类型标识："generic"
     fn engine_type(&self) -> &str {
         "generic"
     }
+    /// JSON 格式无固定魔术字节标识，返回 None
     fn magic_bytes(&self) -> Option<&[u8]> {
         None
     }
 
+    /// 加载 JSON 存档文件并扁平化为 `_flat` 映射。
+    ///
+    /// 返回结构包含：
+    /// - `_format`: 格式标识 `"generic_json"`
+    /// - `_root`: 原始 JSON 根节点
+    /// - `_flat`: 扁平化后的字段映射（键为"路径.键"格式）
     fn load(&self, filepath: &str) -> Result<Value, GameToolError> {
         let raw = fs::read_to_string(filepath)
             .map_err(|e| GameToolError::ArchiveLoadError(e.to_string()))?;
         let root: Value = serde_json::from_str(&raw)
             .map_err(|e| GameToolError::ArchiveLoadError(e.to_string()))?;
 
+        // 将嵌套 JSON 展开为扁平键值对
         let flat = flatten_json(&root, "");
         let mut data = Map::new();
         data.insert("_format".into(), Value::String("generic_json".into()));
@@ -49,6 +70,9 @@ impl ISaveFormat for GenericJsonFormat {
         Ok(Value::Object(data))
     }
 
+    /// 保存修改后的数据：将 `_flat` 反扁平化后以美化格式写回文件。
+    ///
+    /// 自动创建备份（最多保留 10 个）。
     fn save(&self, filepath: &str, data: &Value) -> Result<(), GameToolError> {
         let path = Path::new(filepath);
         let _ = backup::save_backup(path, 10);
@@ -57,6 +81,7 @@ impl ISaveFormat for GenericJsonFormat {
             .and_then(|v| v.as_object())
             .cloned()
             .unwrap_or_default();
+        // 将扁平键值对还原为嵌套 JSON
         let root = unflatten_json(&flat);
         let json_str = serde_json::to_string_pretty(&root)
             .map_err(|e| GameToolError::ArchiveSaveError(e.to_string()))?;
@@ -64,6 +89,9 @@ impl ISaveFormat for GenericJsonFormat {
         Ok(())
     }
 
+    /// 在游戏目录中查找数据文件夹。
+    ///
+    /// 按优先级搜索 `data`、`saves`、`save`、`game` 子目录。
     fn find_data_dir(&self, game_dir: &str) -> Option<String> {
         let dir = Path::new(game_dir);
         for sub in &["data", "saves", "save", "game"] {
@@ -75,6 +103,9 @@ impl ISaveFormat for GenericJsonFormat {
         None
     }
 
+    /// 从扁平数据中提取存档摘要信息。
+    ///
+    /// 自动识别金币（gold/money/coin 等关键词）和字段总数。
     fn get_summary(&self, data: &Value) -> SaveSummary {
         let flat = data.get("_flat").and_then(|v| v.as_object());
         let gold = find_gold_like(flat).unwrap_or(0);
@@ -86,10 +117,14 @@ impl ISaveFormat for GenericJsonFormat {
         }
     }
 
+    /// 扫描扁平数据中的所有可修改字段。
+    ///
+    /// 根据键名自动推断字段类别（金币/属性/背包/进度/设置/角色）。
     fn scan_fields(&self, data: &Value, _game_dir: &str) -> Vec<ModifiableField> {
         let mut fields = Vec::new();
         if let Some(flat) = data.get("_flat").and_then(|v| v.as_object()) {
             for (key, value) in flat {
+                // 推断值类型
                 let field_type = match value {
                     Value::Bool(_) => "bool",
                     Value::Number(n) if n.is_f64() => "float",
@@ -97,7 +132,9 @@ impl ISaveFormat for GenericJsonFormat {
                     Value::String(_) => "str",
                     _ => "str",
                 };
+                // 根据键名推断类别
                 let category = guess_category(key);
+                // 使用已知的中文名映射，否则使用原始键名
                 let display_name = FIELD_NAME_MAP
                     .get(key.as_str())
                     .copied()
@@ -115,6 +152,9 @@ impl ISaveFormat for GenericJsonFormat {
         fields
     }
 
+    /// 将修改应用到扁平数据中。
+    ///
+    /// 通过 `field_id` 中的 `json_` 前缀提取对应的扁平键并更新值。
     fn apply_field(&self, data: &mut Value, field: &ModifiableField) -> Result<(), GameToolError> {
         let key = field
             .field_id
@@ -130,6 +170,11 @@ impl ISaveFormat for GenericJsonFormat {
     }
 }
 
+/// 将嵌套 JSON 值扁平化为"前缀.键"格式的映射。
+///
+/// - 对象节点展开为 `prefix.key`（递归）
+/// - 数组节点展开为 `prefix[index]`（递归）
+/// - 叶子节点（数字/字符串/布尔/null）直接插入
 fn flatten_json(value: &Value, prefix: &str) -> Map<String, Value> {
     let mut result = Map::new();
     match value {
@@ -141,8 +186,10 @@ fn flatten_json(value: &Value, prefix: &str) -> Map<String, Value> {
                     format!("{}.{}", prefix, key)
                 };
                 if val.is_object() || val.is_array() {
+                    // 递归展平嵌套结构
                     result.extend(flatten_json(val, &new_prefix));
                 } else {
+                    // 叶子节点直接插入
                     result.insert(new_prefix, val.clone());
                 }
             }
@@ -158,6 +205,7 @@ fn flatten_json(value: &Value, prefix: &str) -> Map<String, Value> {
     result
 }
 
+/// 将扁平键值对还原为嵌套 JSON 结构。
 fn unflatten_json(flat: &Map<String, Value>) -> Value {
     let mut result = Map::new();
     for (key, value) in flat {
@@ -166,24 +214,32 @@ fn unflatten_json(flat: &Map<String, Value>) -> Value {
     Value::Object(result)
 }
 
+/// 按点号分隔的路径将值插入嵌套映射中。
+///
+/// 支持两种路径语法：
+/// - `a.b.c` — 嵌套对象
+/// - `a[0].b` — 数组索引 + 嵌套对象
 fn insert_by_path(map: &mut Map<String, Value>, path: &str, value: Value) {
-    // Handle bracket notation: "items[0].name" or "items[0]"
+    // 处理括号表示法：如 "items[0].name" 或 "items[0]"
     if let Some(bracket_start) = path.find('[') {
         let array_key = &path[..bracket_start];
-        let rest = &path[bracket_start..]; // "[0].name" or "[0]"
+        let rest = &path[bracket_start..]; // "[0].name" 或 "[0]"
         let entry = map
             .entry(array_key.to_string())
             .or_insert_with(|| Value::Array(Vec::new()));
         if let Some(arr) = entry.as_array_mut() {
             if let Some(bracket_end) = rest.find(']') {
                 let idx: usize = rest[1..bracket_end].parse().unwrap_or(0);
+                // 扩容数组以确保索引存在
                 while arr.len() <= idx {
                     arr.push(Value::Null);
                 }
                 let remainder = &rest[bracket_end + 1..];
                 if remainder.is_empty() {
+                    // 最终目标就是数组元素本身
                     arr[idx] = value;
                 } else if let Some(after_dot) = remainder.strip_prefix('.') {
+                    // 数组元素包含嵌套对象
                     if !arr[idx].is_object() && !arr[idx].is_array() {
                         arr[idx] = Value::Object(Map::new());
                     }
@@ -194,24 +250,31 @@ fn insert_by_path(map: &mut Map<String, Value>, path: &str, value: Value) {
         return;
     }
 
+    // 处理点号表示法：如 "player.hp"
     if let Some(dot_pos) = path.find('.') {
         let key = &path[..dot_pos];
         let rest = &path[dot_pos + 1..];
         let entry = map.entry(key.to_string()).or_insert_with(|| {
             if rest.starts_with('[') {
+                // 下层是数组索引，创建数组
                 Value::Array(Vec::new())
             } else {
+                // 下层是对象键，创建对象
                 Value::Object(Map::new())
             }
         });
         insert_by_path_inner(entry, rest, value);
     } else {
+        // 只有一级键，直接插入
         map.insert(path.to_string(), value);
     }
 }
 
+/// 在任意 JSON 值节点中沿路径递归插入（`insert_by_path` 的辅助函数）。
+///
+/// 同样支持点号表示法和括号数组索引。
 fn insert_by_path_inner(node: &mut Value, path: &str, value: Value) {
-    // Handle bracket notation at any level
+    // 处理括号表示法（在任何层级）
     if let Some(bracket_start) = path.find('[') {
         if let Some(bracket_end) = path.find(']') {
             let idx: usize = path[bracket_start + 1..bracket_end].parse().unwrap_or(0);
@@ -233,6 +296,7 @@ fn insert_by_path_inner(node: &mut Value, path: &str, value: Value) {
         return;
     }
 
+    // 处理点号表示法
     if let Some(dot_pos) = path.find('.') {
         let key = &path[..dot_pos];
         let rest = &path[dot_pos + 1..];
@@ -247,6 +311,9 @@ fn insert_by_path_inner(node: &mut Value, path: &str, value: Value) {
     }
 }
 
+/// 在扁平数据中查找与"金币"相关的字段值。
+///
+/// 按中英文关键词匹配键名（不区分大小写）。
 fn find_gold_like(flat: Option<&Map<String, Value>>) -> Option<i32> {
     let flat = flat?;
     let keywords = ["gold", "Gold", "money", "Money", "coin", "金币", "金钱"];
@@ -260,6 +327,16 @@ fn find_gold_like(flat: Option<&Map<String, Value>>) -> Option<i32> {
     None
 }
 
+/// 根据键名语义推断字段分类。
+///
+/// 分类规则（匹配不区分大小写）：
+/// - **金币**: gold/money/coin/cash/credit/currency/金币/金钱
+/// - **属性**: hp/health/mp/mana/atk/def/str/int/dex/vit/luk/luck/speed/spd/level/exp/stat
+/// - **背包**: item/inventory/weapon/armor/equip
+/// - **进度**: stage/chapter/progress/score/quest/mission
+/// - **设置**: volume/language/difficulty/setting/config
+/// - **角色**: name/player/character/actor
+/// - **通用**: 其他所有
 fn guess_category(key: &str) -> String {
     let lower = key.to_lowercase();
     if lower.contains("gold")
@@ -328,6 +405,9 @@ fn guess_category(key: &str) -> String {
     "general".into()
 }
 
+/// 常见字段名的中文显示名映射表。
+///
+/// 在 UI 中展示时，优先使用中文名而非原始 JSON 键名。
 static FIELD_NAME_MAP: std::sync::LazyLock<HashMap<&str, &str>> = std::sync::LazyLock::new(|| {
     HashMap::from([
         ("gold", "金币"),

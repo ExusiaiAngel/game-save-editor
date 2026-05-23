@@ -1,10 +1,19 @@
+//! 分类树组件，提供字段分类筛选功能。
+//!
+//! 支持两种渲染模式：
+//! - `render`：垂直列表模式，大分类（>200条）自动拆分为子范围子选项
+//! - `render_horizontal`：水平换行模式（紧凑布局），不拆分范围
+
 use egui::Ui;
 use game_tool_core::ModifiableField;
 use std::collections::BTreeMap;
 
+/// 大分类拆分阈值：条目数超过此值时，该分类会被拆分为多个子范围
 const SPLIT_THRESHOLD: usize = 200;
+/// 每个子范围的跨度大小（如 0-99, 100-199）
 const SPLIT_SIZE: usize = 100;
 
+/// 分类键名到中文显示名的映射表
 pub const CATEGORY_LABELS: &[(&str, &str)] = &[
     ("gold", "金币"),
     ("switch", "开关"),
@@ -20,6 +29,7 @@ pub const CATEGORY_LABELS: &[(&str, &str)] = &[
     ("store", "Store"),
 ];
 
+/// 根据原始分类名获取中文显示名，未知分类直接返回原始名
 pub fn category_display_name(raw: &str) -> &str {
     for (key, label) in CATEGORY_LABELS {
         if *key == raw {
@@ -29,7 +39,13 @@ pub fn category_display_name(raw: &str) -> &str {
     raw
 }
 
+/// 渲染垂直分类树（用于侧边栏或大幅面布局）
+///
+/// 统计各分类的条目数量，按 `CATEGORY_LABELS` 顺序排列，未在映射中的分类排在最后。
+/// 当选中的分类条目数超过 `SPLIT_THRESHOLD` 时，自动拆分为子范围子选项
+/// （如 "开关 0-99"、"开关 100-199"），子范围选中键格式为 `"category:start-end"`。
 pub fn render(ui: &mut Ui, fields: &[ModifiableField], selected: &mut Option<String>) {
+    // 统计每个分类的条目数量（使用 BTreeMap 保证有序）
     let mut cats: BTreeMap<String, usize> = BTreeMap::new();
     for f in fields {
         *cats.entry(f.category.clone()).or_default() += 1;
@@ -38,6 +54,7 @@ pub fn render(ui: &mut Ui, fields: &[ModifiableField], selected: &mut Option<Str
     ui.strong("分类");
     ui.add_space(4.0);
 
+    // "全部"选项：清空筛选
     if ui
         .selectable_label(selected.is_none(), format!("全部 ({})", fields.len()))
         .clicked()
@@ -45,12 +62,14 @@ pub fn render(ui: &mut Ui, fields: &[ModifiableField], selected: &mut Option<Str
         *selected = None;
     }
 
+    // 按 CATEGORY_LABELS 顺序渲染已知分类
     for (key, label) in CATEGORY_LABELS {
         if let Some(&count) = cats.get(*key) {
             if count > SPLIT_THRESHOLD {
-                // Split into sub-ranges based on max item_id
+                // 大分类拆分为子范围
                 let text = format!("{} ({})", label, count);
                 ui.label(text);
+                // 找到该分类中最大的 item_id，以确定子范围边界
                 let max_id = fields
                     .iter()
                     .filter(|f| f.category == *key)
@@ -62,6 +81,7 @@ pub fn render(ui: &mut Ui, fields: &[ModifiableField], selected: &mut Option<Str
                     let start = g * SPLIT_SIZE;
                     let end = ((g + 1) * SPLIT_SIZE - 1).min(max_id);
                     let sub_text = format!("  {}-{}", start, end);
+                    // 子范围键格式：category:start-end
                     let range_key = format!("{}:{}-{}", key, start, end);
                     let is_sel = selected.as_deref() == Some(&range_key);
                     if ui.selectable_label(is_sel, sub_text).clicked() {
@@ -69,6 +89,7 @@ pub fn render(ui: &mut Ui, fields: &[ModifiableField], selected: &mut Option<Str
                     }
                 }
             } else {
+                // 小分类：直接可选
                 let text = format!("{} ({})", label, count);
                 let is_sel = selected.as_deref() == Some(key);
                 if ui.selectable_label(is_sel, text).clicked() {
@@ -78,6 +99,7 @@ pub fn render(ui: &mut Ui, fields: &[ModifiableField], selected: &mut Option<Str
         }
     }
 
+    // 渲染不在 CATEGORY_LABELS 中的未知分类
     for (cat, count) in &cats {
         if !CATEGORY_LABELS.iter().any(|(k, _)| k == cat) {
             let text = format!("{} ({})", cat, count);
@@ -89,13 +111,19 @@ pub fn render(ui: &mut Ui, fields: &[ModifiableField], selected: &mut Option<Str
     }
 }
 
+/// 渲染水平分类筛选栏（紧凑模式，使用 `horizontal_wrapped` 自动换行）
+///
+/// 与 `render` 不同，此模式不会对大分类进行子范围拆分，
+/// 所有分类直接以可点击标签的形式水平排列。
 pub fn render_horizontal(ui: &mut Ui, fields: &[ModifiableField], selected: &mut Option<String>) {
+    // 统计每个分类的条目数量
     let mut cats: BTreeMap<String, usize> = BTreeMap::new();
     for f in fields {
         *cats.entry(f.category.clone()).or_default() += 1;
     }
 
     ui.horizontal_wrapped(|ui| {
+        // "全部"选项
         if ui
             .selectable_label(selected.is_none(), format!("全部 ({})", fields.len()))
             .clicked()
@@ -103,6 +131,7 @@ pub fn render_horizontal(ui: &mut Ui, fields: &[ModifiableField], selected: &mut
             *selected = None;
         }
 
+        // 已知分类
         for (key, label) in CATEGORY_LABELS {
             if let Some(&count) = cats.get(*key) {
                 let text = format!("{} ({})", label, count);
@@ -113,6 +142,7 @@ pub fn render_horizontal(ui: &mut Ui, fields: &[ModifiableField], selected: &mut
             }
         }
 
+        // 未知分类
         for (cat, count) in &cats {
             if !CATEGORY_LABELS.iter().any(|(k, _)| k == cat) {
                 let text = format!("{} ({})", cat, count);
@@ -125,7 +155,14 @@ pub fn render_horizontal(ui: &mut Ui, fields: &[ModifiableField], selected: &mut
     });
 }
 
-/// Parse a range filter like "switch:0-99" into (category, start, end)
+/// 解析带范围的分类选择键
+///
+/// 输入格式：
+/// - `"category"` → `(Some("category"), None)` — 仅分类筛选
+/// - `"category:start-end"` → `(Some("category"), Some((start, end)))` — 分类+范围筛选
+/// - `None` → `(None, None)` — 无筛选
+///
+/// 如果 start > end，范围视为无效，返回 `(Some(category), None)`。
 pub fn parse_range(selected: &Option<String>) -> (Option<String>, Option<(usize, usize)>) {
     if let Some(ref sel) = selected {
         if let Some(colon) = sel.find(':') {

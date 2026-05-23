@@ -1,62 +1,84 @@
 //! LZ-String 压缩/解压（封装 lz-str crate）
 //!
-//! 与 JS 版 lz-string 1.4.4 兼容，用于 RPG Maker MV 存档解析。
-//! 底层使用 `lz_str` crate（Rust 端 lz-string 移植）。
+//! 提供与 JS 版 lz-string 1.4.4 兼容的压缩/解压功能。
+//! 主要用于 RPG Maker MV 存档的 JSON 数据解压和重新压缩。
+//! 底层使用 `lz_str` crate（Rust 端 lz-string 算法的完整移植）。
 
 use thiserror::Error;
 
-/// LZ-String 操作错误
+/// LZ-String 压缩/解压操作可能产生的错误
 #[derive(Error, Debug)]
 pub enum LzStringError {
-    /// 解压失败：数据格式无效或损坏
+    /// 解压失败：输入数据格式无效或已损坏
     #[error("LZ-String 解压失败：数据无效或损坏")]
     DecompressFailed,
 
-    /// UTF-16 解码失败：解压结果不是有效的 UTF-16
+    /// UTF-16 解码失败：解压结果不是有效的 UTF-16 字节序列
+    /// LZ-String 内部使用 UTF-16 编码，解压后需转换为 Rust 的 UTF-8 String
     #[error("UTF-16 解码失败：{0}")]
     Utf16DecodeError(#[from] std::string::FromUtf16Error),
 }
 
-/// 从 Base64 编码的 LZ-String 解压为原始 JSON 字符串
+/// 从 Base64 编码的 LZ-String 数据解压为原始字符串
+///
+/// RPG Maker MV 的存档文件（.rpgsave）是 Base64 编码的 LZ-String 压缩数据，
+/// 解压后得到 JSON 格式的存档内容。
 ///
 /// # 参数
-/// - `input`: Base64 编码的 lz-string 压缩数据
+/// - `input`: Base64 编码的 LZ-String 压缩数据（即 .rpgsave 文件内容）
 ///
 /// # 返回
-/// - `Ok(String)`: 解压后的原始字符串
-/// - `Err(LzStringError)`: 解压失败
+/// - `Ok(String)`: 解压后的原始 JSON 字符串
+/// - `Err(LzStringError)`: 解压失败（数据损坏或 Base64 无效）
+///
+/// # 内部流程
+/// 1. Base64 解码 → Vec<u16>
+/// 2. LZ-String 解压算法 → Vec<u16>
+/// 3. UTF-16 → UTF-8 转换 → String
 pub fn decompress_from_base64(input: &str) -> Result<String, LzStringError> {
+    // 空输入直接返回空字符串
     if input.is_empty() {
         return Ok(String::new());
     }
 
+    // 调用 lz_str crate 进行 Base64 LZ-String 解压
     let decoded_u16 =
         lz_str::decompress_from_base64(input).ok_or(LzStringError::DecompressFailed)?;
 
-    // Vec<u16> → String（lz-string 内部使用 UTF-16 编码）
+    // Vec<u16> → String 转换
+    // LZ-String 算法内部使用 UTF-16 编码存储字符，
+    // 所以解压得到的是 u16 数组，需要转换为 Rust 的 UTF-8 String
     let result = String::from_utf16(&decoded_u16)?;
     Ok(result)
 }
 
 /// 将字符串压缩为 Base64 编码的 LZ-String 格式
 ///
+/// 与 `decompress_from_base64` 互为逆操作，用于修改存档后
+/// 重新压缩写回 .rpgsave 文件。
+///
 /// # 参数
-/// - `input`: 待压缩的原始字符串（通常是 JSON）
+/// - `input`: 待压缩的原始字符串（通常是序列化后的 JSON）
 ///
 /// # 返回
-/// - `Ok(String)`: Base64 编码的压缩数据
-/// - `Err(LzStringError)`: 压缩失败（当前不会发生，但保留 Result 签名以便向后兼容）
+/// - `Ok(String)`: Base64 编码的 LZ-String 压缩数据
+/// - `Err(LzStringError)`: 压缩失败（当前实现不会发生此错误，
+///   但保留 `Result` 签名以便将来扩展和向后兼容）
+///
+/// # 兼容性处理
+/// `lz_str` crate 的 Base64 输出比 Python `lzstring` 库多一个尾随 `=`，
+/// 此处去除以确保与 Python golden 测试文件的字节级兼容。
 pub fn compress_to_base64(input: &str) -> Result<String, LzStringError> {
     if input.is_empty() {
-        // lz_str::compress_to_base64("") 返回空字符串，但 Python lzstring 返回 "Q==="
-        // 为了与 Python/JS 行为一致，我们也返回空字符串
-        // 注意：decompress_from_base64("") 也会返回 Ok("")，形成往返一致性
+        // lz_str::compress_to_base64("") 返回空字符串
+        // Python lzstring 也返回空字符串（而非 "Q==="）
+        // 注意 decompress_from_base64("") 同样返回 Ok("")，
+        // 形成完整的往返一致性
         return Ok(String::new());
     }
 
     let mut compressed = lz_str::compress_to_base64(input);
-    // lz_str crate 的 base64 编码比 Python lzstring 多一个尾随 '='
-    // 去除以匹配 Python golden 文件格式，保证字节级兼容性
+    // lz_str crate 的 Base64 输出末尾多一个 '='，去掉以匹配 Python 库行为
     if compressed.ends_with('=') {
         compressed.pop();
     }

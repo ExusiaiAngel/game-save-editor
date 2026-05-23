@@ -6,6 +6,7 @@ members = [
     "crates/engines/renpy",
     "crates/engines/unreal",
     "crates/engines/generic",
+    "crates/engines/memory",
     "crates/app",
     "crates/gui",
 ]

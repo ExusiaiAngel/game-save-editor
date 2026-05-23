@@ -1,12 +1,30 @@
+//! 标签栏面板，提供功能标签页的切换和游戏目录切换入口。
+//!
+//! 标签栏位于顶部栏下方、中央面板上方，以横向标签页形式展示所有可用功能。
+//! 当前选中标签下方会绘制强调色下划线；禁用标签悬停时显示原因 tooltip。
+//! 右侧固定显示"切换游戏"按钮，可重新选择游戏目录。
+
 use crate::state::TabMode;
 use crate::theme;
 use egui::{vec2, Ui};
 
+/// 标签栏产生的操作
 pub enum TabAction {
+    /// 切换到指定标签页
     SwitchTab(TabMode),
+    /// 切换游戏目录（弹出目录选择对话框）
     SwitchGame,
 }
 
+/// 渲染标签栏，显示所有功能标签页和切换游戏按钮
+///
+/// 标签启用逻辑：
+/// - **存档编辑、备份管理**：需要已加载游戏（has_game）
+/// - **实时编辑**：需要已加载游戏且引擎支持实时修改（has_game && supports_rt）
+/// - **工具箱、设置**：始终可用
+///
+/// 被禁用的标签会显示悬停提示（tooltip）说明原因。
+/// 当前选中标签下方会绘制强调色下划线。
 pub fn render(ui: &mut Ui, active_tab: TabMode, has_game: bool, supports_rt: bool) -> Vec<TabAction> {
     let mut actions = Vec::new();
 
@@ -23,6 +41,7 @@ pub fn render(ui: &mut Ui, active_tab: TabMode, has_game: bool, supports_rt: boo
 
         for tab in &tabs {
             let selected = active_tab == *tab;
+            // 标签启用/禁用逻辑
             let enabled = match tab {
                 TabMode::SaveEditor | TabMode::BackupManager => has_game,
                 TabMode::RealtimeEditor => has_game && supports_rt,
@@ -35,6 +54,7 @@ pub fn render(ui: &mut Ui, active_tab: TabMode, has_game: bool, supports_rt: boo
                 .add_enabled_ui(enabled, |ui| ui.selectable_label(selected, label))
                 .inner;
 
+            // 选中标签下方绘制强调色下划线
             if selected {
                 let underline = egui::Rect::from_min_size(
                     egui::pos2(resp.rect.left(), resp.rect.bottom()),
@@ -48,6 +68,7 @@ pub fn render(ui: &mut Ui, active_tab: TabMode, has_game: bool, supports_rt: boo
                 actions.push(TabAction::SwitchTab(*tab));
             }
 
+            // 禁用标签显示理由 tooltip
             if !enabled {
                 let reason = match tab {
                     TabMode::RealtimeEditor if !supports_rt => {
@@ -59,6 +80,7 @@ pub fn render(ui: &mut Ui, active_tab: TabMode, has_game: bool, supports_rt: boo
             }
         }
 
+        // 右侧对齐的"切换游戏"按钮
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             if ui.button("\u{5207}\u{6362}\u{6e38}\u{620f}...").clicked() {
                 actions.push(TabAction::SwitchGame);

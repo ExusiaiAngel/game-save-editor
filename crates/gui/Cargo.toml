@@ -22,6 +22,7 @@ game-tool-rpgmaker = { path = "../engines/rpgmaker" }
 game-tool-renpy = { path = "../engines/renpy" }
 game-tool-unreal = { path = "../engines/unreal" }
 game-tool-generic = { path = "../engines/generic" }
+game-tool-memory = { path = "../engines/memory" }
 
 [dev-dependencies]
 tempfile.workspace = true

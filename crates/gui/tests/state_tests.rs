@@ -1,8 +1,15 @@
+//! 状态初始化与枚举变体测试。
+//!
+//! 验证 `AppState::new(None)` 的默认值是否符合预期，以及各个枚举类型的
+//! 变体之间是否互不相同、Clone 行为是否正确。
+
 mod common;
 
 use game_tool_core::detector::EngineType;
 use game_tool_gui::state::{AppState, ConnectionStatus, SavePanelMode};
 
+/// 验证 `AppState::new(None)` 的默认初始值：游戏目录、引擎、配置、字段列表等
+/// 所有字段均为空/默认状态。
 #[test]
 fn test_appstate_new_none_defaults() {
     let state = AppState::new(None);
@@ -37,6 +44,7 @@ fn test_appstate_new_none_defaults() {
     assert!(state.rt_panel.locked_fields.is_empty());
 }
 
+/// 验证连接状态枚举的三种变体互不相同
 #[test]
 fn test_connection_status_variants_distinct() {
     assert_ne!(ConnectionStatus::Disconnected, ConnectionStatus::Connecting);
@@ -44,6 +52,7 @@ fn test_connection_status_variants_distinct() {
     assert_ne!(ConnectionStatus::Connected, ConnectionStatus::Disconnected);
 }
 
+/// 验证存档面板模式枚举的四种变体互不相同
 #[test]
 fn test_save_panel_mode_variants_distinct() {
     assert_ne!(SavePanelMode::RpgMaker, SavePanelMode::RenPy);
@@ -52,6 +61,7 @@ fn test_save_panel_mode_variants_distinct() {
     assert_ne!(SavePanelMode::Generic, SavePanelMode::RpgMaker);
 }
 
+/// 验证 readonly 标志的默认值为 false，且可以正确切换为 true
 #[test]
 fn test_save_panel_readonly_flag() {
     let mut state = AppState::new(None);
@@ -60,6 +70,7 @@ fn test_save_panel_readonly_flag() {
     assert!(state.save_panel.readonly);
 }
 
+/// 验证未加载游戏时 game_title 为空字符串
 #[test]
 fn test_game_title_empty_with_no_game() {
     let state = AppState::new(None);

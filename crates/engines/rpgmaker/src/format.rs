@@ -1,6 +1,7 @@
-//! RPG Maker MV/MZ 存档格式处理器
+//! RPG Maker MV/MZ 存档格式处理器。
 //!
 //! 实现 SaveFormat trait，处理 .rpgsave / .rmmzsave 文件。
+//! 存档使用 LZ-String 压缩的 Base64 编码 JSON 格式。
 
 use std::fs;
 use std::path::Path;
@@ -10,6 +11,9 @@ use serde_json::Value;
 
 use crate::jsonex;
 
+/// RPG Maker MV/MZ 存档格式处理器。
+///
+/// 支持标准格式和 JSONEx 扩展格式的存档读取、修改和保存。
 pub struct RpgMakerFormat;
 
 impl Default for RpgMakerFormat {
@@ -19,10 +23,17 @@ impl Default for RpgMakerFormat {
 }
 
 impl RpgMakerFormat {
+    /// 创建新的 RPG Maker 格式处理器
     pub fn new() -> Self {
         Self
     }
 
+    /// 从文件加载原始存档（LZ-String + Base64 → JSON）。
+    ///
+    /// 处理流程：
+    /// 1. 读取文件文本
+    /// 2. 在 Base64 解码 + LZ-String 解压
+    /// 3. 将结果解析为 JSON
     fn load_raw(path: &Path) -> Result<Value, GameToolError> {
         let raw = fs::read_to_string(path)
             .map_err(|e| GameToolError::ArchiveLoadError(format!("无法读取文件: {}", e)))?;
@@ -30,6 +41,7 @@ impl RpgMakerFormat {
         if raw.is_empty() {
             return Err(GameToolError::ArchiveLoadError("存档文件为空".into()));
         }
+        // LZ-String 压缩的 Base64 数据 → JSON 字符串
         let json_str = game_tool_core::lzstring::decompress_from_base64(&raw)
             .map_err(|e| GameToolError::ArchiveLoadError(format!("LZ-String 解压失败: {}", e)))?;
         if json_str.is_empty() {
@@ -40,6 +52,12 @@ impl RpgMakerFormat {
         Ok(data)
     }
 
+    /// 将 JSON 数据保存为原始存档格式（JSON → LZ-String + Base64）。
+    ///
+    /// 处理流程：
+    /// 1. JSON 序列化
+    /// 2. LZ-String 压缩
+    /// 3. Base64 编码后写入文件
     fn save_raw(path: &Path, data: &Value) -> Result<(), GameToolError> {
         let json_str = serde_json::to_string(data)
             .map_err(|e| GameToolError::ArchiveSaveError(format!("JSON 序列化失败: {}", e)))?;
@@ -56,6 +74,7 @@ impl ISaveFormat for RpgMakerFormat {
         "RPG Maker MV/MZ"
     }
 
+    /// 支持的存档扩展名：.rpgsave (MV), .rmmzsave (MZ)
     fn extensions(&self) -> Vec<String> {
         vec![".rpgsave".into(), ".rmmzsave".into()]
     }
@@ -72,12 +91,16 @@ impl ISaveFormat for RpgMakerFormat {
         Self::load_raw(Path::new(filepath))
     }
 
+    /// 保存存档（自动创建备份）。
     fn save(&self, filepath: &str, data: &Value) -> Result<(), GameToolError> {
         let path = Path::new(filepath);
         let _ = backup::save_backup(path, 10);
         Self::save_raw(path, data)
     }
 
+    /// 查找游戏数据目录。
+    ///
+    /// 搜索 `www/data` 或 `data`，需要存在 `System.json` 才认为是有效目录。
     fn find_data_dir(&self, game_dir: &str) -> Option<String> {
         let dir = Path::new(game_dir);
         for sub in &["www/data", "data"] {
@@ -89,14 +112,19 @@ impl ISaveFormat for RpgMakerFormat {
         None
     }
 
+    /// 提取存档摘要信息。
+    ///
+    /// 包含：金币、队伍人数、物品数量、存档次数、游戏时间、成员列表。
+    /// 支持标准格式和 JSONEx 格式（actors._data.@a）。
     fn get_summary(&self, data: &Value) -> SaveSummary {
+        // 金币来源: party._gold
         let gold = data
             .get("party")
             .and_then(|p| p.get("_gold"))
             .and_then(|v| v.as_i64())
             .unwrap_or(0) as i32;
 
-        // Party size: try party._actors first, fallback to actors._data.@a (JSONEx)
+        // 队伍人数：先尝试 party._actors，回退到 JSONEx: actors._data.@a
         let party_size = data
             .get("party")
             .and_then(|p| p.get("_actors"))
@@ -109,11 +137,12 @@ impl ISaveFormat for RpgMakerFormat {
             })
             .unwrap_or(0);
 
+        // 物品数量：统计拥有数 > 0 的道具
         let item_count = data
             .get("party")
             .and_then(|p| p.get("_items"))
             .and_then(|v| {
-                // Check for _data wrapper (JSONEx)
+                // 检查 _data 包装（JSONEx）
                 if let Some(inner) = v.get("_data").and_then(|d| d.as_object()) {
                     Some(
                         jsonex::filter_meta_keys(inner)
@@ -134,12 +163,14 @@ impl ISaveFormat for RpgMakerFormat {
             })
             .unwrap_or(0);
 
+        // 存档次数
         let save_count = data
             .get("system")
             .and_then(|s| s.get("_saveCount"))
             .and_then(|v| v.as_i64())
             .unwrap_or(0) as i32;
 
+        // 游戏时间（秒）：优先 _playtime，回退到 _framesOnSave / 60
         let play_time = data
             .get("system")
             .and_then(|s| s.get("_playtime"))
@@ -152,6 +183,7 @@ impl ISaveFormat for RpgMakerFormat {
             })
             .unwrap_or(0) as i32;
 
+        // 成员列表（ID:名称格式）
         let members = data
             .get("party")
             .and_then(|p| p.get("_actors"))
@@ -170,7 +202,7 @@ impl ISaveFormat for RpgMakerFormat {
                     .collect()
             })
             .or_else(|| {
-                // JSONEx: read from actors._data.@a
+                // JSONEx 回退: actors._data.@a
                 data.get("actors")
                     .and_then(|a| a.get("_data"))
                     .map(|inner| {
@@ -200,10 +232,19 @@ impl ISaveFormat for RpgMakerFormat {
         }
     }
 
+    /// 扫描所有可修改字段（委托给 scanner 模块）。
     fn scan_fields(&self, data: &Value, game_dir: &str) -> Vec<ModifiableField> {
         crate::scanner::scan_all_modifiable(game_dir, Some(data), None).fields
     }
 
+    /// 应用字段修改。
+    ///
+    /// 按类别分发处理：
+    /// - `gold`: 修改 `party._gold`
+    /// - `switch`: 通过 `ensure_switches_array` 修改
+    /// - `variable`: 通过 `ensure_variables_array` 修改
+    /// - `item`: 修改 `party._items` 中的物品数量
+    /// - `actor`: 修改角色 HP/MP/等级（支持 JSONEx 和标准格式）
     fn apply_field(&self, data: &mut Value, field: &ModifiableField) -> Result<(), GameToolError> {
         let cat = &field.category;
         match cat.as_str() {
@@ -216,6 +257,7 @@ impl ISaveFormat for RpgMakerFormat {
                 }
             }
             "switch" => {
+                // 确保 switches 结构存在并获取数组引用
                 let arr = jsonex::ensure_switches_array(data);
                 let id = field.item_id as usize;
                 if id >= arr.len() {
@@ -224,6 +266,7 @@ impl ISaveFormat for RpgMakerFormat {
                 arr[id] = field.save_value.clone();
             }
             "variable" => {
+                // 确保 variables 结构存在并获取数组引用
                 let arr = jsonex::ensure_variables_array(data);
                 let id = field.item_id as usize;
                 if id >= arr.len() {
@@ -242,6 +285,7 @@ impl ISaveFormat for RpgMakerFormat {
             }
             "actor" => {
                 let fid = &field.field_id;
+                // 根据 field_id 后缀判断修改的属性类型
                 if fid.ends_with("_hp") {
                     set_actor_stat(data, field.item_id, "_hp", &field.save_value)?;
                 } else if fid.ends_with("_mp") {
@@ -256,12 +300,20 @@ impl ISaveFormat for RpgMakerFormat {
     }
 }
 
+/// 设置指定角色的某个属性值。
+///
+/// 支持两种数据格式：
+/// 1. **JSONEx 格式**: `actors._data.@a[...]`
+/// 2. **标准格式**: `party._actors[...]`
+///
+/// 布尔值会被转换为数字（true → 1, false → 0）。
 fn set_actor_stat(
     data: &mut Value,
     actor_id: i32,
     stat: &str,
     value: &Value,
 ) -> Result<(), GameToolError> {
+    // 布尔值归一化为数字
     let val = if value.is_boolean() {
         if value.as_bool().unwrap_or(false) {
             Value::Number(1.into())
@@ -272,7 +324,7 @@ fn set_actor_stat(
         value.clone()
     };
 
-    // Try JSONEx: actors._data.@a
+    // 优先尝试 JSONEx: actors._data.@a
     let updated = data
         .pointer_mut("/actors/_data")
         .and_then(|inner| {
@@ -289,7 +341,7 @@ fn set_actor_stat(
             None
         })
         .or_else(|| {
-            // Fallback: party._actors (standard format)
+            // 回退: party._actors（标准格式）
             data.pointer_mut("/party/_actors").and_then(|actors| {
                 if let Some(arr) = actors.as_array_mut() {
                     for actor in arr {
@@ -314,6 +366,7 @@ fn set_actor_stat(
     Ok(())
 }
 
+// ── 单元测试 ──
 #[cfg(test)]
 mod tests {
     use super::*;

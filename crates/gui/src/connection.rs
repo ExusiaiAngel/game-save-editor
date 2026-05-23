@@ -1,19 +1,40 @@
+//! 桥接线程管理模块：负责实时连接的建立、通信与结果回收。
+//!
+//! 架构说明：
+//! - 每个实时连接运行在独立的线程中，通过 mpsc 通道与 GUI 主线程通信
+//! - GUI 主线程通过 cmd_tx 发送 BridgeJob，桥接线程通过 result_tx 返回 BridgeResult
+//! - 所有桥接操作在子线程中执行，避免阻塞 GUI 渲染
+
 use crate::factory::create_bridge;
 use crate::state::{BridgeJob, BridgeResult, ConnectionStatus, RealtimeConnection};
+use game_tool_core::MemoryCommand;
 use game_tool_core::detector::EngineType;
 use std::sync::mpsc;
 use std::thread;
 
+/// 启动一个独立的桥接线程，返回与 GUI 通信的通道结构。
+///
+/// 工作流程：
+/// 1. 创建两个 mpsc 通道（命令通道 cmd 和结果通道 result）
+/// 2. spawn 一个新线程，在其中循环接收命令：
+///    - Connect → 根据引擎类型创建网桥并连接
+///    - Disconnect → 断开并清理网桥
+///    - Execute(cmd) → 通过网桥执行命令并返回结果
+///    - 通道关闭 → 退出线程
+/// 3. 使用 catch_unwind 捕获线程 panic，防止子线程崩溃影响主线程
 pub fn spawn_bridge_thread(
     engine_clone: EngineType,
     host: String,
     port: u16,
 ) -> RealtimeConnection {
+    // 命令通道：GUI → 桥接线程
     let (cmd_tx, cmd_rx) = mpsc::channel::<BridgeJob>();
+    // 结果通道：桥接线程 → GUI
     let (result_tx, result_rx) = mpsc::channel::<BridgeResult>();
 
     let host_clone = host.clone();
     thread::spawn(move || {
+        // 用 catch_unwind 包裹整个循环，防止线程 panic 导致进程崩溃
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
             let mut bridge: Option<Box<dyn game_tool_core::GameBridge>> = None;
 
@@ -37,6 +58,7 @@ pub fn spawn_bridge_thread(
                         }
                     }
                     Ok(BridgeJob::Disconnect) => {
+                        // 断开现有连接并清理网桥对象
                         if let Some(ref mut b) = bridge {
                             b.disconnect();
                         }
@@ -56,7 +78,32 @@ pub fn spawn_bridge_thread(
                             let _ = result_tx.send(BridgeResult::Error("未连接".into()));
                         }
                     },
+                    Ok(BridgeJob::MemoryCommand(mem_cmd)) => match &mut bridge {
+                        Some(b) => match b.handle_memory_command(&mem_cmd) {
+                            Ok(val) => {
+                                // 根据命令类型路由到不同的 BridgeResult 变体
+                                let result = match &mem_cmd {
+                                    MemoryCommand::Attach(_) => BridgeResult::Attached,
+                                    MemoryCommand::FirstScan { .. } | MemoryCommand::NextScan { .. } => {
+                                        BridgeResult::ScanResult(val)
+                                    }
+                                    MemoryCommand::SeedFromSave(_) | MemoryCommand::CrossValidate { .. } => {
+                                        BridgeResult::SeedResult(val)
+                                    }
+                                    _ => BridgeResult::CommandResult(val),
+                                };
+                                let _ = result_tx.send(result);
+                            }
+                            Err(e) => {
+                                let _ = result_tx.send(BridgeResult::Error(e.to_string()));
+                            }
+                        },
+                        None => {
+                            let _ = result_tx.send(BridgeResult::Error("未连接".into()));
+                        }
+                    },
                     Err(_) => {
+                        // 通道已关闭（GUI 端断开），清理资源并退出
                         if let Some(ref mut b) = bridge {
                             b.disconnect();
                         }
@@ -67,6 +114,7 @@ pub fn spawn_bridge_thread(
             }
         }));
 
+        // 线程 panic 后的兜底处理
         if let Err(_panic) = result {
             let _ = result_tx.send(BridgeResult::Error("连接异常断开".into()));
             let _ = result_tx.send(BridgeResult::Disconnected);
@@ -80,6 +128,10 @@ pub fn spawn_bridge_thread(
     }
 }
 
+/// 从通道中非阻塞地提取所有待处理的结果
+///
+/// 使用 try_recv() 而非 recv()，确保不会阻塞 GUI 线程。
+/// 每次 update() 调用时都会调用此函数，批量处理积累的结果。
 pub fn drain_results(conn: &mut RealtimeConnection) -> Vec<BridgeResult> {
     let mut results = Vec::new();
     while let Ok(r) = conn.result_rx.try_recv() {

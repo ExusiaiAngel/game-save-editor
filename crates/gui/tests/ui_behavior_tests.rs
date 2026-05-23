@@ -1,3 +1,12 @@
+//! UI 行为逻辑测试。
+//!
+//! 验证 GUI 中关键的交互逻辑：
+//! - 游戏切换时桥接通道断开、实时字段清空
+//! - 脏字段计数、锁定字段切换、自动刷新开关
+//! - 连接状态下写入动作的正确路由
+//! - 错误消息与反馈消息的定时清除机制
+//! - 桥接命令与结果枚举的构造匹配
+
 mod common;
 
 use game_tool_core::detector::EngineType;
@@ -8,16 +17,14 @@ use game_tool_gui::state::{AppState, BridgeJob, BridgeResult};
 use serde_json::Value;
 use std::collections::HashSet;
 
-// ─── T1: switch game must disconnect bridge ────────────────────────
-
+/// 切换游戏时，桥接连接应被断开（即 conn 为空）
 #[test]
 fn test_switch_game_disconnects_bridge() {
     let state = AppState::new(Some("nonexistent_path".into()));
     assert!(state.rt_panel.conn.is_none());
 }
 
-// ─── T9: dirty_count should match actual dirty fields ──────────────
-
+/// 修改字段后 dirty_count 应正确反映实际脏字段数量
 #[test]
 fn test_dirty_count_matches_modified_fields() {
     let mut fields = vec![
@@ -62,8 +69,7 @@ fn test_dirty_count_matches_modified_fields() {
     assert_eq!(dirty_count_after, 2);
 }
 
-// ─── T4: write feedback not sent when disconnected ─────────────────
-
+/// 未连接状态下，写入字段操作不应推送 WriteField 动作
 #[test]
 fn test_write_field_not_sent_when_disconnected() {
     let is_conn = false;
@@ -83,6 +89,7 @@ fn test_write_field_not_sent_when_disconnected() {
     assert!(!action_pushed);
 }
 
+/// 已连接状态下，写入字段操作应推送 WriteField 动作
 #[test]
 fn test_write_field_sent_when_connected() {
     let is_conn = true;
@@ -101,8 +108,7 @@ fn test_write_field_sent_when_connected() {
     assert!(action_pushed);
 }
 
-// ─── T3: real-time fields should be clear after game switch ───────
-
+/// 切换游戏后，实时编辑字段应被清空（避免残留旧游戏数据）
 #[test]
 fn test_rt_fields_cleared_on_game_switch() {
     let mut state = AppState::new(None);
@@ -120,8 +126,7 @@ fn test_rt_fields_cleared_on_game_switch() {
     assert!(state.rt_panel.fields.is_empty());
 }
 
-// ─── T10: locked_fields toggle logic ──────────────────────────────
-
+/// 锁定字段的开关切换逻辑：第一次插入，第二次移除
 #[test]
 fn test_locked_fields_toggle() {
     let mut locked: HashSet<String> = HashSet::new();
@@ -142,8 +147,7 @@ fn test_locked_fields_toggle() {
     assert!(!locked.contains(&fid));
 }
 
-// ─── T7: error/feedback message clearing ──────────────────────────
-
+/// 错误消息在超时后应自动清除（未到期时不消失，到期后才清空）
 #[test]
 fn test_error_message_clears_on_timer_expiry() {
     let mut error_expires_at: Option<std::time::Instant> =
@@ -170,6 +174,7 @@ fn test_error_message_clears_on_timer_expiry() {
     assert!(error_expires_at.is_none());
 }
 
+/// 写入反馈消息在超时后应自动清除（3 秒到期）
 #[test]
 fn test_write_feedback_clears_on_timer_expiry() {
     let mut feedback_expires_at: Option<std::time::Instant> =
@@ -196,8 +201,7 @@ fn test_write_feedback_clears_on_timer_expiry() {
     assert!(feedback_expires_at.is_none());
 }
 
-// ─── T12: connection thread sends Disconnected on channel close ────
-
+/// 桥接通道关闭时，drain_results 应正确收到 Connected 和 Disconnected 结果
 #[test]
 fn test_drain_results_receives_disconnected() {
     let (_cmd_tx, _cmd_rx) = std::sync::mpsc::channel::<BridgeJob>();
@@ -223,22 +227,25 @@ fn test_drain_results_receives_disconnected() {
     }
 }
 
-// ─── T6: unsupported engine returns error on connect ──────────────
-
+/// 未知引擎类型不应创建桥接实例（返回 None）
 #[test]
 fn test_unsupported_engine_bridge_returns_none() {
     let bridge = factory::create_bridge(&EngineType::Unknown, "127.0.0.1", 8080);
     assert!(bridge.is_none());
-
-    let bridge = factory::create_bridge(&EngineType::Unreal, "127.0.0.1", 8080);
-    assert!(bridge.is_none());
-
-    let bridge = factory::create_bridge(&EngineType::UnityMono, "127.0.0.1", 8080);
-    assert!(bridge.is_none());
 }
 
-// ─── T13: backup file filter matches .bak suffix ──────────────────
+/// Unreal 和 Unity Mono 引擎应支持内存桥接（create_bridge 返回 Some）
+#[test]
+fn test_memory_bridge_supports_unreal_and_unity() {
+    let bridge = factory::create_bridge(&EngineType::Unreal, "127.0.0.1", 8080);
+    assert!(bridge.is_some());
+    assert_eq!(bridge.unwrap().engine_name(), "memory_bridge");
 
+    let bridge = factory::create_bridge(&EngineType::UnityMono, "127.0.0.1", 8080);
+    assert!(bridge.is_some());
+}
+
+/// 备份文件过滤器应正确识别 .bak 后缀、config.rpgsave、global.rpgsave
 #[test]
 fn test_backup_filter_matches_bak_suffix() {
     let test_cases = vec![
@@ -261,8 +268,7 @@ fn test_backup_filter_matches_bak_suffix() {
     }
 }
 
-// ─── T11: save panel dirty_count triggers save button ─────────────
-
+/// 保存按钮仅在 dirty_count > 0 且已加载数据且非只读时启用
 #[test]
 fn test_save_button_enabled_only_when_dirty_and_data_loaded() {
     let dirty_count = 3usize;
@@ -281,8 +287,7 @@ fn test_save_button_enabled_only_when_dirty_and_data_loaded() {
     assert!(!enabled3);
 }
 
-// ─── T5: auto_refresh toggle ──────────────────────────────────────
-
+/// 自动刷新开关应能在 true/false 之间正确切换
 #[test]
 fn test_auto_refresh_toggle() {
     let mut auto_refresh = true;
@@ -292,8 +297,7 @@ fn test_auto_refresh_toggle() {
     assert!(auto_refresh);
 }
 
-// ─── T2: unsaved dialog flag ──────────────────────────────────────
-
+/// 有脏字段时切换游戏应触发"未保存修改"对话框
 #[test]
 fn test_unsaved_dialog_triggered_by_switch() {
     let dirty_count = 5usize;
@@ -305,8 +309,7 @@ fn test_unsaved_dialog_triggered_by_switch() {
     assert!(!show_dialog2);
 }
 
-// ─── BridgeResult enum tests ──────────────────────────────────────
-
+/// BridgeResult 枚举的各种变体应能正确构造并匹配
 #[test]
 fn test_bridge_result_variants() {
     let connected = BridgeResult::Connected;
@@ -334,8 +337,7 @@ fn test_bridge_result_variants() {
     }
 }
 
-// ─── BridgeJob enum tests ─────────────────────────────────────────
-
+/// BridgeJob 枚举的各种变体应能正确构造并匹配（含 WriteField 参数验证）
 #[test]
 fn test_bridge_job_variants() {
     let connect = BridgeJob::Connect;
@@ -362,8 +364,7 @@ fn test_bridge_job_variants() {
     }
 }
 
-// ─── SaveAction enum test ─────────────────────────────────────────
-
+/// SaveAction 枚举的 LoadSave、RefreshFiles、Save 变体应能正确构造
 #[test]
 fn test_save_action_variants() {
     let load = save_editor::SaveAction::LoadSave;
@@ -375,8 +376,7 @@ fn test_save_action_variants() {
     let _ = save;
 }
 
-// ─── RtAction enum test ───────────────────────────────────────────
-
+/// RtAction 枚举的 WriteField、CopyToSave、ToggleLock 变体应能正确构造并匹配
 #[test]
 fn test_rt_action_variants() {
     let write = realtime_editor::RtAction::WriteField("gold".into(), Value::Number(50.into()));
