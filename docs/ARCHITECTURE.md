@@ -158,7 +158,7 @@ egui/eframe 桌面 GUI。
 | | `save_editor.rs` | 存档编辑面板（文件选择/分类筛选/字段编辑表） |
 | | `realtime_editor.rs` | 实时修改面板（TCP 连接管理/内存扫描/字段编辑） |
 | | `backup.rs` | 备份管理面板（创建/恢复/删除/批量/差异对比） |
-| | `toolbox.rs` | 工具箱面板（LZString/Base64/完整性检查） |
+| | `toolbox.rs` | 工具箱面板（LZString/Base64/存档信息/完整性检查/批量扫描/修复） |
 | | `settings.rs` | 设置面板（主题/端口/最近游戏/配置/关于） |
 | | `status_bar.rs` | 底部状态栏（选项卡感知的上下文信息） |
 | **widgets/** | | 可复用 UI 控件 |

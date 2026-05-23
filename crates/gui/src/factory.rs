@@ -57,13 +57,6 @@ pub fn create_bridge(engine: &EngineType, host: &str, port: u16) -> Option<Box<d
     }
 }
 
-/// 判断指定引擎的存档是否只读（不可编辑）
-///
-/// 当前仅 Unreal 引擎的 GVA 格式为只读。
-pub fn is_readonly(_engine: &EngineType) -> bool {
-    false
-}
-
 /// 判断指定引擎是否支持实时修改功能
 ///
 /// 需要游戏运行时有对应的网桥插件，目前支持 RPG Maker 系列和 Ren'Py。
@@ -330,19 +323,6 @@ fn renpy_state_to_fields(state: &GameState) -> Vec<ModifiableField> {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_is_readonly_none() {
-        assert!(!is_readonly(&EngineType::RpgMakerMv));
-        assert!(!is_readonly(&EngineType::RpgMakerMz));
-        assert!(!is_readonly(&EngineType::NwJs));
-        assert!(!is_readonly(&EngineType::RenPy));
-        assert!(!is_readonly(&EngineType::Unreal));
-        assert!(!is_readonly(&EngineType::UnityMono));
-        assert!(!is_readonly(&EngineType::UnityIl2Cpp));
-        assert!(!is_readonly(&EngineType::Godot));
-        assert!(!is_readonly(&EngineType::Unknown));
-    }
 
     #[test]
     fn test_supports_realtime_all_except_unknown() {

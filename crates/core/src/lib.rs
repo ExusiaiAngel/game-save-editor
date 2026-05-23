@@ -14,6 +14,7 @@ pub mod base64;
 pub mod config;
 pub mod detector;
 pub mod error;
+pub mod integrity;
 pub mod lzstring;
 pub mod net;
 pub mod types;

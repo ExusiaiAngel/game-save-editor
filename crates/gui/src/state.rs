@@ -94,6 +94,24 @@ pub struct RealtimeConnection {
     pub status: ConnectionStatus,        // 当前连接状态
 }
 
+/// 工具箱面板的用户操作指令
+pub enum ToolboxAction {
+    /// 获取存档文件基本信息
+    GetSaveInfo(String),
+    /// 执行存档完整性检查
+    IntegrityCheck(String),
+    /// 对目录执行批量完整性检查
+    BatchCheck(String),
+    /// 尝试修复损坏的存档文件
+    RepairSave(String),
+    /// 清除完整性检查结果
+    ClearCheck,
+    /// 清除批量检查结果
+    ClearBatch,
+    /// 清除修复结果
+    ClearRepair,
+}
+
 /// 工具箱面板的状态数据
 pub struct ToolboxState {
     pub lz_input: String,    // LZ 压缩/解压输入文本
@@ -101,6 +119,18 @@ pub struct ToolboxState {
     pub lz_error: String,    // LZ 操作错误信息
     pub b64_input: String,   // Base64 编解码输入文本
     pub b64_output: String,  // Base64 编解码输出结果
+    // --- 存档信息查看器 ---
+    pub info_path: String,
+    pub info_result: Option<game_tool_core::integrity::SaveFileInfo>,
+    // --- 完整性检查 ---
+    pub check_path: String,
+    pub check_result: Option<game_tool_core::integrity::IntegrityResult>,
+    // --- 批量检查 ---
+    pub batch_dir: String,
+    pub batch_results: Vec<game_tool_core::integrity::IntegrityResult>,
+    // --- 存档修复 ---
+    pub repair_path: String,
+    pub repair_result: Option<game_tool_core::integrity::RepairResult>,
 }
 
 /// 存档编辑面板的完整状态

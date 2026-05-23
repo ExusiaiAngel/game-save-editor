@@ -1,144 +1,294 @@
 //! 工具箱面板，提供独立于游戏的实用工具集合。
+//!
+//! # 工具列表
+//! 1. **LZString 压缩/解压** — 处理 RPG Maker MV 存档的 LZString + Base64 格式
+//! 2. **Base64 编解码** — 通用 Base64 编码/解码工具
+//! 3. **存档信息查看器** — 快速查看存档文件格式、大小、修改时间等元信息
+//! 4. **存档完整性检查** — 深度格式校验 + 数据逻辑检查
+//! 5. **批量完整性检查** — 扫描目录中所有存档文件，批量校验
+//! 6. **存档修复工具** — 尝试修复损坏的 RPG Maker 存档文件
 
-use crate::state::ToolboxState;
+use crate::state::{ToolboxAction, ToolboxState};
 use crate::theme::colors;
 use egui::Ui;
 
-/// 渲染工具箱面板，提供独立于游戏的实用工具
-///
-/// # 工具列表
-/// 1. **LZString 压缩/解压** — 处理 RPG Maker MV 存档使用的 LZString + Base64 格式
-///    - 输入 JSON 文本或 Base64 压缩文本，可选择压缩或解压
-///    - 结果支持一键复制到剪贴板
-///    - 错误信息以红色显示
-/// 2. **Base64 编解码** — 通用 Base64 编码/解码工具
-///    - 编码：将文本转换为 Base64
-///    - 解码：将 Base64 还原为文本（无效输入返回错误提示）
-/// 3. **存档完整性检查** — 选择存档文件后检查 JSON 合法性、引擎格式匹配、
-///    magic bytes、必要字段完整性
-/// 4. **游戏目录扫描** — 手动触发目录扫描，查看引擎检测结果、存档路径、
-///    开关/变量数量等信息
-///
-/// # 状态持久化
-/// 所有输入/输出/错误信息保存在 `ToolboxState` 中，切换标签页不会丢失。
-pub fn render(ui: &mut Ui, state: &mut ToolboxState) {
-    ui.heading("\u{1f9f0} \u{5de5}\u{5177}\u{7bb1}");
+/// 渲染工具箱面板，返回用户触发的操作列表
+pub fn render(ui: &mut Ui, state: &mut ToolboxState) -> Vec<ToolboxAction> {
+    let mut actions = Vec::new();
+
+    ui.heading("🧰 工具箱");
     ui.add_space(8.0);
 
-    // ========== LZString 压缩/解压工具 ==========
-    egui::CollapsingHeader::new("\u{1f5dc} LZString \u{538b}\u{7f29}/\u{89e3}\u{538b}")
+    render_lzstring_section(ui, state);
+    ui.add_space(8.0);
+
+    render_base64_section(ui, state);
+    ui.add_space(8.0);
+
+    render_save_info_section(ui, state, &mut actions);
+    ui.add_space(8.0);
+
+    render_integrity_section(ui, state, &mut actions);
+    ui.add_space(8.0);
+
+    render_batch_section(ui, state, &mut actions);
+    ui.add_space(8.0);
+
+    render_repair_section(ui, state, &mut actions);
+
+    actions
+}
+
+fn render_lzstring_section(ui: &mut Ui, state: &mut ToolboxState) {
+    egui::CollapsingHeader::new("🗜 LZString 压缩/解压")
         .default_open(true)
         .show(ui, |ui| {
-            ui.colored_label(
-                colors::TEXT_SECONDARY,
-                "RPG Maker MV \u{5b58}\u{6863}\u{4f7f}\u{7528}\u{7684} LZString + Base64 \u{683c}\u{5f0f}",
-            );
+            ui.colored_label(colors::TEXT_SECONDARY, "RPG Maker MV 存档使用的 LZString + Base64 格式");
             ui.add_space(4.0);
-            ui.label("\u{8f93}\u{5165} (JSON \u{6587}\u{672c}\u{6216} Base64 \u{538b}\u{7f29}\u{6587}\u{672c}):");
-            // 多行输入区域
+            ui.label("输入 (JSON 文本或 Base64 压缩文本):");
             ui.add_sized(
                 [ui.available_width(), 100.0],
                 egui::TextEdit::multiline(&mut state.lz_input),
             );
             ui.horizontal(|ui| {
-                // 压缩按钮：JSON -> Base64 压缩文本
-                if ui.button("\u{538b}\u{7f29}").clicked() {
+                if ui.button("压缩").clicked() {
                     match game_tool_core::lzstring::compress_to_base64(&state.lz_input) {
-                        Ok(r) => {
-                            state.lz_output = r;
-                            state.lz_error.clear();
-                        }
-                        Err(e) => {
-                            state.lz_error = format!("{:?}", e);
-                        }
+                        Ok(r) => { state.lz_output = r; state.lz_error.clear(); }
+                        Err(e) => { state.lz_error = format!("{:?}", e); }
                     }
                 }
-                // 解压按钮：Base64 压缩文本 -> JSON
-                if ui.button("\u{89e3}\u{538b}").clicked() {
+                if ui.button("解压").clicked() {
                     match game_tool_core::lzstring::decompress_from_base64(&state.lz_input) {
-                        Ok(r) => {
-                            state.lz_output = r;
-                            state.lz_error.clear();
-                        }
-                        Err(e) => {
-                            state.lz_error = format!("{:?}", e);
-                        }
+                        Ok(r) => { state.lz_output = r; state.lz_error.clear(); }
+                        Err(e) => { state.lz_error = format!("{:?}", e); }
                     }
                 }
-                // 复制结果到剪贴板
-                if !state.lz_output.is_empty()
-                    && ui.button("\u{1f4cb} \u{590d}\u{5236}").clicked()
-                {
+                if !state.lz_output.is_empty() && ui.button("📋 复制").clicked() {
                     ui.ctx().copy_text(state.lz_output.clone());
                 }
             });
-            // 显示结果
             if !state.lz_output.is_empty() {
-                ui.colored_label(colors::SUCCESS, "\u{7ed3}\u{679c}:");
+                ui.colored_label(colors::SUCCESS, "结果:");
                 ui.label(&state.lz_output);
             }
-            // 显示错误
             if !state.lz_error.is_empty() {
                 ui.colored_label(colors::ERROR, &state.lz_error);
             }
         });
+}
 
-    ui.add_space(8.0);
-
-    // ========== Base64 编解码工具 ==========
-    egui::CollapsingHeader::new("\u{1f524} Base64 \u{7f16}\u{89e3}\u{7801}")
+fn render_base64_section(ui: &mut Ui, state: &mut ToolboxState) {
+    egui::CollapsingHeader::new("🔤 Base64 编解码")
         .default_open(false)
         .show(ui, |ui| {
-            ui.label("\u{8f93}\u{5165}:");
+            ui.label("输入:");
             ui.add_sized(
                 [ui.available_width(), 100.0],
                 egui::TextEdit::multiline(&mut state.b64_input),
             );
             ui.horizontal(|ui| {
-                // 编码：文本 -> Base64
-                if ui.button("\u{7f16}\u{7801}").clicked() {
+                if ui.button("编码").clicked() {
                     state.b64_output = game_tool_core::base64::encode(state.b64_input.as_bytes());
                 }
-                // 解码：Base64 -> 文本（失败时显示错误信息）
-                if ui.button("\u{89e3}\u{7801}").clicked() {
+                if ui.button("解码").clicked() {
                     if let Some(bytes) = game_tool_core::base64::decode(&state.b64_input) {
                         state.b64_output = String::from_utf8_lossy(&bytes).to_string();
                     } else {
-                        state.b64_output = "\u{89e3}\u{7801}\u{5931}\u{8d25}: \u{65e0}\u{6548}\u{7684} Base64 \u{8f93}\u{5165}".into();
+                        state.b64_output = "解码失败: 无效的 Base64 输入".into();
                     }
                 }
-                // 复制结果
-                if !state.b64_output.is_empty()
-                    && ui.button("\u{1f4cb} \u{590d}\u{5236}").clicked()
-                {
+                if !state.b64_output.is_empty() && ui.button("📋 复制").clicked() {
                     ui.ctx().copy_text(state.b64_output.clone());
                 }
             });
-            // 显示结果
             if !state.b64_output.is_empty() {
-                ui.label(format!("\u{7ed3}\u{679c}: {}", state.b64_output));
+                ui.label(format!("结果: {}", state.b64_output));
             }
         });
+}
 
-    ui.add_space(8.0);
-
-    // ========== 存档完整性检查（说明项） ==========
-    egui::CollapsingHeader::new("\u{1f50d} \u{5b58}\u{6863}\u{5b8c}\u{6574}\u{6027}\u{68c0}\u{67e5}")
+fn render_save_info_section(ui: &mut Ui, state: &mut ToolboxState, actions: &mut Vec<ToolboxAction>) {
+    egui::CollapsingHeader::new("📄 存档信息查看器")
+        .default_open(false)
         .show(ui, |ui| {
-            ui.colored_label(
-                colors::TEXT_SECONDARY,
-                "\u{9009}\u{62e9}\u{5b58}\u{6863}\u{6587}\u{4ef6}\u{540e}\u{ff0c}\u{5c06}\u{68c0}\u{67e5}: JSON \u{5408}\u{6cd5}\u{6027}\u{3001}\u{5f15}\u{64ce}\u{683c}\u{5f0f}\u{5339}\u{914d}\u{3001}magic bytes\u{3001}\u{5fc5}\u{8981}\u{5b57}\u{6bb5}\u{5b8c}\u{6574}\u{6027}\u{3002}",
-            );
+            ui.horizontal(|ui| {
+                ui.label("文件路径:");
+                ui.add(egui::TextEdit::singleline(&mut state.info_path).hint_text("选择存档文件..."));
+                if ui.button("选择").clicked() {
+                    if let Some(path) = rfd::FileDialog::new().set_title("选择存档文件").pick_file() {
+                        state.info_path = path.to_string_lossy().to_string();
+                    }
+                }
+                if !state.info_path.is_empty() && ui.button("查看").clicked() {
+                    actions.push(ToolboxAction::GetSaveInfo(state.info_path.clone()));
+                }
+            });
+            if let Some(ref info) = state.info_result {
+                ui.separator();
+                ui.label(format!("格式: {}", info.format_name));
+                ui.label(format!("引擎: {}", info.engine));
+                ui.label(format!("大小: {} 字节", info.file_size));
+                ui.label(format!("修改时间: {}", info.modified));
+                if info.is_valid {
+                    ui.colored_label(colors::SUCCESS, "状态: 有效");
+                } else {
+                    ui.colored_label(colors::ERROR, format!("状态: 无效 — {}", info.error.as_deref().unwrap_or("")));
+                }
+            }
         });
+}
 
-    ui.add_space(8.0);
-
-    // ========== 游戏目录扫描（说明项） ==========
-    egui::CollapsingHeader::new("\u{1f4c2} \u{6e38}\u{620f}\u{76ee}\u{5f55}\u{626b}\u{63cf}")
+fn render_integrity_section(ui: &mut Ui, state: &mut ToolboxState, actions: &mut Vec<ToolboxAction>) {
+    egui::CollapsingHeader::new("🔍 存档完整性检查")
         .show(ui, |ui| {
-            ui.colored_label(
-                colors::TEXT_SECONDARY,
-                "\u{624b}\u{52a8}\u{626b}\u{63cf}\u{6e38}\u{620f}\u{76ee}\u{5f55}\u{ff0c}\u{67e5}\u{770b}\u{5f15}\u{64ce}\u{68c0}\u{6d4b}\u{7ed3}\u{679c}\u{3001}\u{5b58}\u{6863}\u{8def}\u{5f84}\u{3001}\u{5f00}\u{5173}/\u{53d8}\u{91cf}\u{6570}\u{91cf}\u{3002}",
-            );
+            ui.horizontal(|ui| {
+                ui.label("文件路径:");
+                ui.add(egui::TextEdit::singleline(&mut state.check_path).hint_text("选择存档文件..."));
+                if ui.button("选择").clicked() {
+                    if let Some(path) = rfd::FileDialog::new().set_title("选择存档文件").pick_file() {
+                        state.check_path = path.to_string_lossy().to_string();
+                    }
+                }
+                if !state.check_path.is_empty() && ui.button("检查").clicked() {
+                    actions.push(ToolboxAction::IntegrityCheck(state.check_path.clone()));
+                }
+            });
+
+            if let Some(ref result) = state.check_result {
+                ui.separator();
+                ui.heading("检查结果");
+                ui.label(format!("文件: {}", result.file_path));
+                ui.label(format!("格式: {}", result.format_name));
+                ui.label(format!("大小: {} 字节", result.file_size));
+                ui.label(format!("字段数: {}", result.field_count));
+                if let Some(ref s) = result.summary {
+                    ui.label(format!("金币: {}", s.gold));
+                    ui.label(format!("游玩时间: {} 秒", s.play_time));
+                }
+
+                if result.is_valid {
+                    ui.colored_label(colors::SUCCESS, "✓ 格式校验通过");
+                } else {
+                    ui.colored_label(colors::ERROR, "✗ 格式校验失败");
+                }
+
+                if !result.errors.is_empty() {
+                    ui.colored_label(colors::ERROR, "错误:");
+                    for e in &result.errors {
+                        ui.colored_label(colors::ERROR, format!("  • {}", e));
+                    }
+                }
+
+                if !result.warnings.is_empty() {
+                    ui.colored_label(colors::WARNING, "警告:");
+                    for w in &result.warnings {
+                        ui.colored_label(colors::WARNING, format!("  • {}", w));
+                    }
+                }
+
+                if ui.button("清除结果").clicked() {
+                    actions.push(ToolboxAction::ClearCheck);
+                }
+            }
+        });
+}
+
+fn render_batch_section(ui: &mut Ui, state: &mut ToolboxState, actions: &mut Vec<ToolboxAction>) {
+    egui::CollapsingHeader::new("📂 批量完整性检查")
+        .show(ui, |ui| {
+            ui.horizontal(|ui| {
+                ui.label("目录:");
+                ui.add(egui::TextEdit::singleline(&mut state.batch_dir).hint_text("选择包含存档的目录..."));
+                if ui.button("选择").clicked() {
+                    if let Some(dir) = rfd::FileDialog::new().set_title("选择存档目录").pick_folder() {
+                        state.batch_dir = dir.to_string_lossy().to_string();
+                    }
+                }
+                if !state.batch_dir.is_empty() && ui.button("扫描").clicked() {
+                    actions.push(ToolboxAction::BatchCheck(state.batch_dir.clone()));
+                }
+            });
+
+            if !state.batch_results.is_empty() {
+                ui.separator();
+                ui.label(format!("扫描结果: 共 {} 个文件", state.batch_results.len()));
+
+                ui.horizontal(|ui| {
+                    ui.label(egui::RichText::new("文件名").strong());
+                    ui.add_space(20.0);
+                    ui.label(egui::RichText::new("格式").strong());
+                    ui.add_space(20.0);
+                    ui.label(egui::RichText::new("状态").strong());
+                });
+                ui.separator();
+
+                for result in &state.batch_results {
+                    let fname = std::path::Path::new(&result.file_path)
+                        .file_name()
+                        .and_then(|n| n.to_str())
+                        .unwrap_or(&result.file_path);
+                    ui.horizontal(|ui| {
+                        ui.label(fname);
+                        ui.add_space(20.0);
+                        ui.label(&result.format_name);
+                        ui.add_space(20.0);
+                        if result.is_valid {
+                            ui.colored_label(colors::SUCCESS, "✓");
+                        } else {
+                            ui.colored_label(colors::ERROR, "✗");
+                        }
+                    });
+                }
+
+                if ui.button("清除结果").clicked() {
+                    actions.push(ToolboxAction::ClearBatch);
+                }
+            }
+        });
+}
+
+fn render_repair_section(ui: &mut Ui, state: &mut ToolboxState, actions: &mut Vec<ToolboxAction>) {
+    egui::CollapsingHeader::new("🔧 存档修复工具")
+        .show(ui, |ui| {
+            ui.colored_label(colors::TEXT_SECONDARY, "适用于 RPG Maker MV/MZ 存档 (.rpgsave/.rmmzsave)");
+            ui.add_space(4.0);
+            ui.horizontal(|ui| {
+                ui.label("文件路径:");
+                ui.add(egui::TextEdit::singleline(&mut state.repair_path).hint_text("选择损坏的存档文件..."));
+                if ui.button("选择").clicked() {
+                    if let Some(path) = rfd::FileDialog::new().set_title("选择损坏的存档文件").pick_file() {
+                        state.repair_path = path.to_string_lossy().to_string();
+                    }
+                }
+                if !state.repair_path.is_empty() && ui.button("修复").clicked() {
+                    actions.push(ToolboxAction::RepairSave(state.repair_path.clone()));
+                }
+            });
+
+            if let Some(ref result) = state.repair_result {
+                ui.separator();
+                if result.success {
+                    ui.colored_label(colors::SUCCESS, "✓ 修复成功");
+                    if let Some(ref p) = result.repaired_path {
+                        ui.label(format!("修复后文件: {}", p));
+                    }
+                } else {
+                    ui.colored_label(colors::ERROR, "✗ 修复失败");
+                    if !result.original_errors.is_empty() {
+                        for e in &result.original_errors {
+                            ui.colored_label(colors::ERROR, format!("  • {}", e));
+                        }
+                    }
+                }
+                if !result.remaining_errors.is_empty() {
+                    ui.colored_label(colors::WARNING, "残留问题:");
+                    for e in &result.remaining_errors {
+                        ui.colored_label(colors::WARNING, format!("  • {}", e));
+                    }
+                }
+                if ui.button("清除结果").clicked() {
+                    actions.push(ToolboxAction::ClearRepair);
+                }
+            }
         });
 }

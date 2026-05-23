@@ -34,65 +34,74 @@ use crate::panels::{
 };
 use crate::state::{
     AppState, BridgeJob, BridgeMode, BridgeResult, ConfirmAction, ConfirmDialog, ConnectionStatus,
-    RtPanelState, SavePanelState, TabMode, ToolboxState,
+    RtPanelState, SavePanelState, TabMode, ToolboxAction, ToolboxState,
 };
 
 impl AppState {
-    /// 创建初始应用状态。
-    ///
-    /// 如果传入了 game_dir，则自动检测引擎类型并加载配置；
-    /// 否则以空状态启动（显示启动面板）。
-    ///
-    /// 初始化流程：
-    /// 1. 加载全局配置（端口、暗色模式、最近游戏）
-    /// 2. 如果提供了游戏目录，执行文件系统检测确定引擎类型
-    /// 3. 扫描游戏配置（开关名、变量名等）
-    /// 4. 创建格式处理器、搜索存档文件
-    /// 5. 检查实时编辑插件是否已安装
-    pub fn new(game_dir: Option<String>) -> Self {
-        let config = load_config().unwrap_or_default();
-        let port = config.tcp_port;
-        let dark_mode = config.dark_mode;
-
-        // 检测引擎类型
-        let engine = game_dir
+    /// 检测游戏目录的引擎类型
+    fn detect_engine(game_dir: &Option<String>) -> EngineType {
+        game_dir
             .as_ref()
             .map(|d| detect_by_filesystem(d))
-            .unwrap_or(EngineType::Unknown);
+            .unwrap_or(EngineType::Unknown)
+    }
 
-        // 扫描游戏配置数据（RPG Maker 的开关/变量名称映射等）
-        let game_config = if let Some(ref dir) = game_dir {
-            if engine != EngineType::Unknown {
+    /// 加载游戏配置（开关/变量名称映射、游戏标题等）
+    fn load_game_config(
+        game_dir: &Option<String>,
+        engine: &EngineType,
+    ) -> (Option<game_tool_rpgmaker::scanner::GameConfig>, String) {
+        let (config, title) = if let Some(ref dir) = game_dir {
+            if *engine != EngineType::Unknown {
                 let gc = game_tool_rpgmaker::scanner::scan_game_directory(dir);
-                if gc.data_loaded {
-                    Some(gc)
+                let title = if gc.data_loaded {
+                    gc.game_title.clone()
                 } else {
-                    None
-                }
+                    String::new()
+                };
+                (if gc.data_loaded { Some(gc) } else { None }, title)
             } else {
-                None
+                (None, String::new())
             }
         } else {
-            None
+            (None, String::new())
         };
+        (config, title)
+    }
 
-        let game_title = game_config
-            .as_ref()
-            .map(|gc| gc.game_title.clone())
-            .unwrap_or_default();
-
-        // 根据引擎创建对应的格式处理器与面板模式
-        let panel_mode = factory::engine_to_panel_mode(&engine);
-        let readonly = factory::is_readonly(&engine);
-        let format = create_format(&engine);
-        let save_files = if let (Some(ref dir), Some(ref fmt)) = (&game_dir, &format) {
+    /// 初始化存档编辑面板
+    fn init_save_panel(game_dir: &Option<String>, engine: &EngineType) -> SavePanelState {
+        let panel_mode = factory::engine_to_panel_mode(engine);
+        let format = create_format(engine);
+        let save_files = if let (Some(ref dir), Some(ref fmt)) = (game_dir, &format) {
             discovery::find_save_files(dir, &**fmt)
         } else {
             Vec::new()
         };
+        SavePanelState {
+            format,
+            save_files,
+            panel_mode,
+            readonly: false,
+            selected_save: None,
+            save_data: None,
+            summary: None,
+            fields: Vec::new(),
+            dirty_count: 0,
+            selected_category: None,
+            search_query: String::new(),
+            jump_id: String::new(),
+        }
+    }
 
-        // 检查实时编辑插件是否已安装
-        let plugin_installed = if factory::supports_realtime(&engine) {
+    /// 初始化实时编辑面板
+    fn init_rt_panel(
+        game_dir: &Option<String>,
+        engine: &EngineType,
+        config: &game_tool_core::config::AppConfig,
+    ) -> RtPanelState {
+        let port = config.tcp_port;
+        let plugin_installed = if factory::supports_realtime(engine) {
             if let Some(ref dir) = game_dir {
                 match engine {
                     EngineType::RpgMakerMv | EngineType::RpgMakerMz | EngineType::NwJs => {
@@ -107,66 +116,83 @@ impl AppState {
         } else {
             false
         };
+        let bridge_mode = if matches!(
+            engine,
+            EngineType::Unreal
+                | EngineType::UnityMono
+                | EngineType::UnityIl2Cpp
+                | EngineType::Godot
+        ) {
+            BridgeMode::Memory
+        } else {
+            BridgeMode::Tcp
+        };
+        RtPanelState {
+            conn: None,
+            fields: Vec::new(),
+            plugin_installed,
+            host: "127.0.0.1".into(),
+            port,
+            error_message: String::new(),
+            error_expires_at: None,
+            write_feedback: String::new(),
+            write_feedback_expires_at: None,
+            search_query: String::new(),
+            selected_category: None,
+            jump_id: String::new(),
+            auto_refresh: true,
+            locked_fields: std::collections::HashSet::new(),
+            refresh_interval_secs: 3,
+            last_refresh: None,
+            bridge_mode,
+            process_list: Vec::new(),
+            selected_process: None,
+            scan_value: String::new(),
+            scan_value_type: game_tool_memory::ValueType::I32,
+            scan_results: Vec::new(),
+            scan_count: 0,
+            next_scan_mode: 0,
+            scan_in_progress: false,
+            field_seeds: Vec::new(),
+            save_fields_snapshot: Vec::new(),
+        }
+    }
+
+    /// 创建初始应用状态
+    pub fn new(game_dir: Option<String>) -> Self {
+        let config = load_config().unwrap_or_default();
+        let engine = Self::detect_engine(&game_dir);
+        let (game_config, game_title) = Self::load_game_config(&game_dir, &engine);
+        let dark_mode = config.dark_mode;
+        let save_panel = Self::init_save_panel(&game_dir, &engine);
+        let rt_panel = Self::init_rt_panel(&game_dir, &engine, &config);
 
         Self {
             game_dir,
             game_title,
-                    engine: engine.clone(),
+            engine,
             game_config,
-            active_tab: TabMode::SaveEditor,  // 默认显示存档编辑面板
+            active_tab: TabMode::SaveEditor,
             dark_mode,
             recent_games: config.recent_games.clone(),
             backup_paths: Vec::new(),
             backup_selection: std::collections::HashSet::new(),
-            save_panel: SavePanelState {
-                format,
-                save_files,
-                panel_mode,
-                readonly,
-                selected_save: None,
-                save_data: None,
-                summary: None,
-                fields: Vec::new(),
-                dirty_count: 0,
-                selected_category: None,
-                search_query: String::new(),
-                jump_id: String::new(),
-            },
-            rt_panel: RtPanelState {
-                conn: None,
-                fields: Vec::new(),
-                plugin_installed,
-                host: "127.0.0.1".into(),
-                port,
-                error_message: String::new(),
-                error_expires_at: None,
-                write_feedback: String::new(),
-                write_feedback_expires_at: None,
-                search_query: String::new(),
-                selected_category: None,
-                jump_id: String::new(),
-                auto_refresh: true,
-                locked_fields: std::collections::HashSet::new(),
-                refresh_interval_secs: 3,
-                last_refresh: None,
-                bridge_mode: if matches!(engine, EngineType::Unreal | EngineType::UnityMono | EngineType::UnityIl2Cpp | EngineType::Godot) { BridgeMode::Memory } else { BridgeMode::Tcp },
-                process_list: Vec::new(),
-                selected_process: None,
-                scan_value: String::new(),
-                scan_value_type: game_tool_memory::ValueType::I32,
-                scan_results: Vec::new(),
-                scan_count: 0,
-                next_scan_mode: 0,
-                scan_in_progress: false,
-                field_seeds: Vec::new(),
-                save_fields_snapshot: Vec::new(),
-            },
+            save_panel,
+            rt_panel,
             toolbox: ToolboxState {
                 lz_input: String::new(),
                 lz_output: String::new(),
                 lz_error: String::new(),
                 b64_input: String::new(),
                 b64_output: String::new(),
+                info_path: String::new(),
+                info_result: None,
+                check_path: String::new(),
+                check_result: None,
+                batch_dir: String::new(),
+                batch_results: Vec::new(),
+                repair_path: String::new(),
+                repair_result: None,
             },
             status_message: String::new(),
             show_unsaved_dialog: false,
@@ -203,7 +229,7 @@ impl AppState {
                 self.save_panel.jump_id.clear();
             }
             Err(e) => {
-                self.status_message = format!("\u{52a0}\u{8f7d}\u{5b58}\u{6863}\u{5931}\u{8d25}: {}", e);
+                self.status_message = format!("加载存档失败: {}", e);
             }
         }
     }
@@ -221,14 +247,14 @@ impl AppState {
         let path = match &self.save_panel.selected_save {
             Some(p) => p.clone(),
             None => {
-                self.status_message = "\u{672a}\u{9009}\u{62e9}\u{5b58}\u{6863}\u{6587}\u{4ef6}".into();
+                self.status_message = "未选择存档文件".into();
                 return false;
             }
         };
         let save_data = match &mut self.save_panel.save_data {
             Some(d) => d,
             None => {
-                self.status_message = "\u{5b58}\u{6863}\u{6570}\u{636e}\u{4e3a}\u{7a7a}".into();
+                self.status_message = "存档数据为空".into();
                 return false;
             }
         };
@@ -249,7 +275,7 @@ impl AppState {
         // 逐个应用修改到 JSON 数据
         for field in &dirty {
             if let Err(e) = format.apply_field(save_data, field) {
-                self.status_message = format!("\u{5199}\u{5165}\u{5b57}\u{6bb5} {} \u{5931}\u{8d25}: {}", field.display_name, e);
+                self.status_message = format!("写入字段 {} 失败: {}", field.display_name, e);
                 return false;
             }
         }
@@ -261,11 +287,11 @@ impl AppState {
                     f.dirty = false;
                 }
                 self.save_panel.dirty_count = 0;
-                self.status_message = "\u{5b58}\u{6863}\u{5df2}\u{4fdd}\u{5b58}".into();
+                self.status_message = "存档已保存".into();
                 true
             }
             Err(e) => {
-                self.status_message = format!("\u{4fdd}\u{5b58}\u{5931}\u{8d25}: {}", e);
+                self.status_message = format!("保存失败: {}", e);
                 false
             }
         }
@@ -287,7 +313,7 @@ impl AppState {
     /// - 添加到最近游戏列表
     fn switch_game(&mut self) {
         if let Some(new_dir) = rfd::FileDialog::new()
-            .set_title("\u{9009}\u{62e9}\u{6e38}\u{620f}\u{76ee}\u{5f55}")
+            .set_title("选择游戏目录")
             .pick_folder()
         {
             let dir_str = new_dir.to_string_lossy().to_string();
@@ -312,7 +338,7 @@ impl AppState {
             // 重置存档面板状态
             self.save_panel.format = create_format(&self.engine);
             self.save_panel.panel_mode = factory::engine_to_panel_mode(&self.engine);
-            self.save_panel.readonly = factory::is_readonly(&self.engine);
+            self.save_panel.readonly = false;
             self.save_panel.selected_save = None;
             self.save_panel.save_data = None;
             self.save_panel.summary = None;
@@ -393,7 +419,7 @@ impl AppState {
         let dir = match &self.game_dir {
             Some(d) => d.clone(),
             None => {
-                self.status_message = "\u{672a}\u{9009}\u{62e9}\u{6e38}\u{620f}\u{76ee}\u{5f55}".into();
+                self.status_message = "未选择游戏目录".into();
                 return;
             }
         };
@@ -402,14 +428,14 @@ impl AppState {
                 game_tool_rpgmaker::tcp::inject_plugin(&dir, self.rt_panel.port).map_err(|e| e)
             }
             EngineType::RenPy => game_tool_renpy::bridge::inject_plugin(&dir).map_err(|e| e),
-            _ => Err("\u{4e0d}\u{652f}\u{6301}".into()),
+            _ => Err("不支持".into()),
         };
         match result {
             Ok(()) => {
                 self.rt_panel.plugin_installed = true;
             }
             Err(e) => {
-                self.status_message = format!("\u{6ce8}\u{5165}\u{5931}\u{8d25}: {}", e);
+                self.status_message = format!("注入失败: {}", e);
             }
         }
     }
@@ -591,7 +617,7 @@ impl AppState {
                             self.rt_panel.fields = new_fields;
                         }
                         if val.as_str() == Some("ok") {
-                            self.rt_panel.write_feedback = "\u{2713} \u{5df2}\u{5199}\u{5165}".into();
+                            self.rt_panel.write_feedback = "✓ 已写入".into();
                             self.rt_panel.write_feedback_expires_at = Some(std::time::Instant::now() + std::time::Duration::from_secs(3));
                         }
                     }
@@ -614,8 +640,8 @@ impl AppState {
                     }
                     BridgeResult::Error(e) => {
                         // 错误处理：致命错误（连接失败/断开）会导致状态变为 Disconnected
-                        let is_fatal = e.contains("\u{8fde}\u{63a5}\u{5931}\u{8d25}")
-                            || e.contains("\u{672a}\u{8fde}\u{63a5}")
+                        let is_fatal = e.contains("连接失败")
+                            || e.contains("未连接")
                             || e.contains("connection refused")
                             || e.contains("closed");
                         if is_fatal {
@@ -660,7 +686,7 @@ impl AppState {
         let path = match &self.save_panel.selected_save {
             Some(p) => p.clone(),
             None => {
-                self.status_message = "\u{672a}\u{9009}\u{62e9}\u{5b58}\u{6863}".into();
+                self.status_message = "未选择存档".into();
                 return;
             }
         };
@@ -668,11 +694,11 @@ impl AppState {
             Ok(backup_path) => {
                 self.backup_paths
                     .push(backup_path.to_string_lossy().to_string());
-                self.status_message = "\u{5907}\u{4efd}\u{5df2}\u{521b}\u{5efa}".into();
+                self.status_message = "备份已创建".into();
             }
             Err(e) => {
                 self.status_message =
-                    format!("\u{521b}\u{5efa}\u{5907}\u{4efd}\u{5931}\u{8d25}: {}", e);
+                    format!("创建备份失败: {}", e);
             }
         }
     }
@@ -688,15 +714,15 @@ impl AppState {
         let target = match &self.save_panel.selected_save {
             Some(p) => p.clone(),
             None => {
-                self.status_message = "\u{672a}\u{9009}\u{62e9}\u{5b58}\u{6863}".into();
+                self.status_message = "未选择存档".into();
                 return;
             }
         };
         if let Err(e) = std::fs::copy(&backup_path, &target) {
-            self.status_message = format!("\u{6062}\u{590d}\u{5931}\u{8d25}: {}", e);
+            self.status_message = format!("恢复失败: {}", e);
         } else {
             self.status_message =
-                "\u{5907}\u{4efd}\u{5df2}\u{6062}\u{590d}\u{5230}\u{5f53}\u{524d}\u{5b58}\u{6863}"
+                "备份已恢复到当前存档"
                     .into();
             self.load_save_file();  // 恢复后重新加载以刷新显示
         }
@@ -712,12 +738,12 @@ impl AppState {
         let path = self.backup_paths.remove(index);
         match std::fs::remove_file(&path) {
             Ok(()) => {
-                self.status_message = "\u{5907}\u{4efd}\u{5df2}\u{5220}\u{9664}".into();
+                self.status_message = "备份已删除".into();
             }
             Err(e) => {
                 // 删除失败时恢复路径到原位置
                 self.backup_paths.insert(index, path);
-                self.status_message = format!("\u{5220}\u{9664}\u{5931}\u{8d25}: {}", e);
+                self.status_message = format!("删除失败: {}", e);
             }
         }
     }
@@ -803,7 +829,7 @@ impl eframe::App for AppState {
                         if !crate::factory::supports_realtime(&self.engine) {
                             ui.colored_label(
                                 crate::theme::colors::TEXT_SECONDARY,
-                                "\u{5f53}\u{524d}\u{5f15}\u{64ce}\u{4e0d}\u{652f}\u{6301}\u{5b9e}\u{65f6}\u{4fee}\u{6539}",
+                                "当前引擎不支持实时修改",
                             );
                         } else if self.rt_panel.bridge_mode == BridgeMode::Memory {
                             // ════════════════════════════════════════
@@ -819,14 +845,14 @@ impl eframe::App for AppState {
                             // 进程选择行
                             ui.horizontal(|ui| {
                                 if !is_attached && !is_connecting {
-                                    if ui.button("\u{21bb} \u{5237}\u{65b0}\u{8fdb}\u{7a0b}").clicked() {
+                                    if ui.button("↻ 刷新进程").clicked() {
                                         self.rt_list_processes();
                                     }
                                     egui::ComboBox::from_id_salt("process_selector")
                                         .selected_text(
                                             self.rt_panel.selected_process
                                                 .clone()
-                                                .unwrap_or_else(|| "\u{9009}\u{62e9}\u{8fdb}\u{7a0b}...".into())
+                                                .unwrap_or_else(|| "选择进程...".into())
                                         )
                                         .show_ui(ui, |ui| {
                                             for proc in &self.rt_panel.process_list {
@@ -841,16 +867,16 @@ impl eframe::App for AppState {
                                         });
                                     if let Some(ref name) = self.rt_panel.selected_process.clone() {
                                         if let Some(proc) = self.rt_panel.process_list.iter().find(|p| p.name == *name) {
-                                            if ui.button("\u{25cf} \u{9644}\u{52a0}").clicked() {
+                                            if ui.button("● 附加").clicked() {
                                                 self.rt_attach_process(proc.pid);
                                             }
                                         }
                                     }
                                 } else if is_connecting {
-                                    ui.colored_label(crate::theme::colors::WARNING, "\u{9644}\u{52a0}\u{4e2d}...");
+                                    ui.colored_label(crate::theme::colors::WARNING, "附加中...");
                                 } else if is_attached {
-                                    ui.colored_label(crate::theme::colors::SUCCESS, "\u{2713} \u{5df2}\u{9644}\u{52a0}");
-                                    if ui.button("\u{25ce} \u{5206}\u{79bb}").clicked() {
+                                    ui.colored_label(crate::theme::colors::SUCCESS, "✓ 已附加");
+                                    if ui.button("◎ 分离").clicked() {
                                         self.rt_detach_process();
                                     }
                                 }
@@ -860,10 +886,10 @@ impl eframe::App for AppState {
                             if is_attached {
                                 ui.separator();
                                 ui.horizontal(|ui| {
-                                    ui.label("\u{641c}\u{7d22}:");
+                                    ui.label("搜索:");
                                     ui.add(egui::TextEdit::singleline(&mut self.rt_panel.scan_value)
                                         .desired_width(100.0)
-                                        .hint_text("\u{8f93}\u{5165}\u{503c}..."));
+                                        .hint_text("输入值..."));
                                     egui::ComboBox::from_id_salt("scan_type")
                                         .selected_text(match self.rt_panel.scan_value_type {
                                             game_tool_memory::ValueType::I32 => "I32",
@@ -887,35 +913,35 @@ impl eframe::App for AppState {
                                                 self.rt_panel.scan_value_type = game_tool_memory::ValueType::F64;
                                             }
                                         });
-                                    if ui.button("\u{9996}\u{6b21}\u{626b}\u{63cf}").clicked() {
+                                    if ui.button("首次扫描").clicked() {
                                         self.rt_scan(true);
                                     }
-                                    ui.label(format!("\u{5019}\u{9009}: {}", self.rt_panel.scan_count));
+                                    ui.label(format!("候选: {}", self.rt_panel.scan_count));
                                 });
 
                                 // 二次扫描模式 + 存档辅助
                                 ui.horizontal(|ui| {
                                     egui::ComboBox::from_id_salt("next_scan_mode")
                                         .selected_text(match self.rt_panel.next_scan_mode {
-                                            0 => "\u{7cbe}\u{786e}\u{503c}",
-                                            1 => "\u{589e}\u{5927}",
-                                            2 => "\u{51cf}\u{5c0f}",
-                                            3 => "\u{672a}\u{53d8}",
-                                            4 => "\u{5df2}\u{53d8}",
+                                            0 => "精确值",
+                                            1 => "增大",
+                                            2 => "减小",
+                                            3 => "未变",
+                                            4 => "已变",
                                             _ => "",
                                         })
                                         .show_ui(ui, |ui| {
-                                            if ui.selectable_label(self.rt_panel.next_scan_mode == 0, "\u{7cbe}\u{786e}\u{503c}").clicked() { self.rt_panel.next_scan_mode = 0; }
-                                            if ui.selectable_label(self.rt_panel.next_scan_mode == 1, "\u{589e}\u{5927}").clicked() { self.rt_panel.next_scan_mode = 1; }
-                                            if ui.selectable_label(self.rt_panel.next_scan_mode == 2, "\u{51cf}\u{5c0f}").clicked() { self.rt_panel.next_scan_mode = 2; }
-                                            if ui.selectable_label(self.rt_panel.next_scan_mode == 3, "\u{672a}\u{53d8}").clicked() { self.rt_panel.next_scan_mode = 3; }
-                                            if ui.selectable_label(self.rt_panel.next_scan_mode == 4, "\u{5df2}\u{53d8}").clicked() { self.rt_panel.next_scan_mode = 4; }
+                                            if ui.selectable_label(self.rt_panel.next_scan_mode == 0, "精确值").clicked() { self.rt_panel.next_scan_mode = 0; }
+                                            if ui.selectable_label(self.rt_panel.next_scan_mode == 1, "增大").clicked() { self.rt_panel.next_scan_mode = 1; }
+                                            if ui.selectable_label(self.rt_panel.next_scan_mode == 2, "减小").clicked() { self.rt_panel.next_scan_mode = 2; }
+                                            if ui.selectable_label(self.rt_panel.next_scan_mode == 3, "未变").clicked() { self.rt_panel.next_scan_mode = 3; }
+                                            if ui.selectable_label(self.rt_panel.next_scan_mode == 4, "已变").clicked() { self.rt_panel.next_scan_mode = 4; }
                                         });
-                                    if ui.button("\u{518d}\u{6b21}\u{626b}\u{63cf}").clicked() {
+                                    if ui.button("再次扫描").clicked() {
                                         self.rt_scan(false);
                                     }
                                     if !self.save_panel.fields.is_empty() {
-                                        if ui.button("\u{4ece}\u{5b58}\u{6863}\u{52a0}\u{8f7d}\u{79cd}\u{5b50}").clicked() {
+                                        if ui.button("从存档加载种子").clicked() {
                                             self.rt_seed_from_save();
                                         }
                                     }
@@ -923,12 +949,12 @@ impl eframe::App for AppState {
 
                                 // 扫描候选结果摘要
                                 if !self.rt_panel.scan_results.is_empty() {
-                                    ui.label(format!("\u{5019}\u{9009}\u{5730}\u{5740}: {} \u{4e2a}", self.rt_panel.scan_count));
+                                    ui.label(format!("候选地址: {} 个", self.rt_panel.scan_count));
                                 }
                                 if !self.rt_panel.field_seeds.is_empty() {
                                     let confirmed_count = self.rt_panel.field_seeds.iter()
                                         .filter(|s| s.confidence > 0.8).count();
-                                    ui.label(format!("\u{5b58}\u{6863}\u{79cd}\u{5b50}: {} \u{4e2a}(\u{786e}\u{8ba4}: {} \u{4e2a})",
+                                    ui.label(format!("存档种子: {} 个(确认: {} 个)",
                                         self.rt_panel.field_seeds.len(), confirmed_count));
                                 }
                             }
@@ -938,13 +964,13 @@ impl eframe::App for AppState {
                             // 刷新控制行（通用部分）
                             ui.horizontal(|ui| {
                                 let auto = self.rt_panel.auto_refresh;
-                                if ui.selectable_label(auto, if auto { "\u{25b6} \u{81ea}\u{52a8}\u{5237}\u{65b0}" } else { "\u{23f8} \u{6682}\u{505c}\u{5237}\u{65b0}" }).clicked() {
+                                if ui.selectable_label(auto, if auto { "▶ 自动刷新" } else { "⏸ 暂停刷新" }).clicked() {
                                     self.rt_panel.auto_refresh = !auto;
                                 }
-                                if ui.button("\u{1f4e5} \u{624b}\u{52a8}\u{5237}\u{65b0}").clicked() {
+                                if ui.button("📥 手动刷新").clicked() {
                                     self.rt_send_command(BridgeCommand::ReadAll);
                                 }
-                                ui.label("\u{95f4}\u{9694}:");
+                                ui.label("间隔:");
                                 egui::ComboBox::from_id_salt("refresh_interval")
                                     .selected_text(format!("{}秒", self.rt_panel.refresh_interval_secs))
                                     .show_ui(ui, |ui| {
@@ -998,12 +1024,12 @@ impl eframe::App for AppState {
                             // ════════════════════════════════════════
                             // 连接配置行：主机地址、端口、连接/断开按钮、插件注入按钮
                             ui.horizontal(|ui| {
-                                ui.label("\u{4e3b}\u{673a}:");
+                                ui.label("主机:");
                                 ui.add(
                                     egui::TextEdit::singleline(&mut self.rt_panel.host)
                                         .desired_width(100.0),
                                 );
-                                ui.label("\u{7aef}\u{53e3}:");
+                                ui.label("端口:");
                                 ui.add(
                                     egui::DragValue::new(&mut self.rt_panel.port)
                                         .range(1024..=65535),
@@ -1023,18 +1049,18 @@ impl eframe::App for AppState {
                                     .unwrap_or(false);
 
                                 if is_connecting {
-                                    ui.colored_label(crate::theme::colors::WARNING, "\u{8fde}\u{63a5}\u{4e2d}...");
+                                    ui.colored_label(crate::theme::colors::WARNING, "连接中...");
                                 } else if is_connected {
-                                    if ui.button("\u{25ce} \u{65ad}\u{5f00}").clicked() {
+                                    if ui.button("◎ 断开").clicked() {
                                         self.rt_disconnect();
                                     }
                                 } else {
                                     let can_connect = self.rt_panel.plugin_installed;
                                     let resp = ui.add_enabled_ui(can_connect, |ui| {
-                                        ui.button("\u{25cf} \u{8fde}\u{63a5}")
+                                        ui.button("● 连接")
                                     });
                                     if !can_connect {
-                                        resp.inner.clone().on_hover_text("\u{8bf7}\u{5148}\u{70b9}\u{51fb}\u{300c}\u{6ce8}\u{5165}\u{63d2}\u{4ef6}\u{300d}\u{ff0c}\u{7136}\u{540e}\u{542f}\u{52a8}\u{6e38}\u{620f}");
+                                        resp.inner.clone().on_hover_text("请先点击「注入插件」，然后启动游戏");
                                     }
                                     if resp.inner.clicked() && can_connect {
                                         self.rt_connect();
@@ -1042,23 +1068,23 @@ impl eframe::App for AppState {
                                 }
 
                                 if !self.rt_panel.plugin_installed {
-                                    if ui.button("\u{6ce8}\u{5165}\u{63d2}\u{4ef6}").clicked() {
+                                    if ui.button("注入插件").clicked() {
                                         self.inject_plugin();
                                     }
                                 } else {
                                     ui.colored_label(
                                         crate::theme::colors::SUCCESS,
-                                        "\u{2713} \u{63d2}\u{4ef6}\u{5df2}\u{6ce8}\u{5165}",
+                                        "✓ 插件已注入",
                                     );
-                                    if ui.button("\u{1f5d1} \u{79fb}\u{9664}\u{63d2}\u{4ef6}").clicked() {
+                                    if ui.button("🗑 移除插件").clicked() {
                                         if let Some(ref dir) = self.game_dir {
                                             match game_tool_rpgmaker::tcp::remove_plugin(dir) {
                                                 Ok(()) => {
                                                     self.rt_panel.plugin_installed = false;
-                                                    self.status_message = "\u{63d2}\u{4ef6}\u{5df2}\u{79fb}\u{9664}".into();
+                                                    self.status_message = "插件已移除".into();
                                                 }
                                                 Err(e) => {
-                                                    self.status_message = format!("\u{79fb}\u{9664}\u{5931}\u{8d25}: {}", e);
+                                                    self.status_message = format!("移除失败: {}", e);
                                                 }
                                             }
                                         }
@@ -1069,13 +1095,13 @@ impl eframe::App for AppState {
                             // 刷新控制行
                             ui.horizontal(|ui| {
                                 let auto = self.rt_panel.auto_refresh;
-                                if ui.selectable_label(auto, if auto { "\u{25b6} \u{81ea}\u{52a8}\u{5237}\u{65b0}" } else { "\u{23f8} \u{6682}\u{505c}\u{5237}\u{65b0}" }).clicked() {
+                                if ui.selectable_label(auto, if auto { "▶ 自动刷新" } else { "⏸ 暂停刷新" }).clicked() {
                                     self.rt_panel.auto_refresh = !auto;
                                 }
-                                if ui.button("\u{1f4e5} \u{624b}\u{52a8}\u{5237}\u{65b0}").clicked() {
+                                if ui.button("📥 手动刷新").clicked() {
                                     self.rt_send_command(BridgeCommand::ReadAll);
                                 }
-                                ui.label("\u{95f4}\u{9694}:");
+                                ui.label("间隔:");
                                 egui::ComboBox::from_id_salt("refresh_interval")
                                     .selected_text(format!("{}秒", self.rt_panel.refresh_interval_secs))
                                     .show_ui(ui, |ui| {
@@ -1134,33 +1160,62 @@ impl eframe::App for AppState {
                                 backup::BackupAction::Restore(i) => {
                                     // 恢复备份前弹出确认对话框
                                     self.show_confirm_dialog = Some(ConfirmDialog {
-                                        title: "\u{6062}\u{590d}\u{5907}\u{4efd}".into(),
-                                        message: "\u{786e}\u{5b9a}\u{7528}\u{6b64}\u{5907}\u{4efd}\u{8986}\u{76d6}\u{5f53}\u{524d}\u{5b58}\u{6863}\u{ff1f}\u{6b64}\u{64cd}\u{4f5c}\u{4e0d}\u{53ef}\u{64a4}\u{9500}\u{3002}".into(),
+                                        title: "恢复备份".into(),
+                                        message: "确定用此备份覆盖当前存档？此操作不可撤销。".into(),
                                         on_confirm: ConfirmAction::RestoreBackup(i),
                                     });
                                 }
                                 backup::BackupAction::Delete(i) => {
                                     // 单删除前弹出确认对话框
                                     self.show_confirm_dialog = Some(ConfirmDialog {
-                                        title: "\u{5220}\u{9664}\u{5907}\u{4efd}".into(),
-                                        message: "\u{786e}\u{5b9a}\u{5220}\u{9664}\u{6b64}\u{5907}\u{4efd}\u{6587}\u{4ef6}\u{ff1f}".into(),
+                                        title: "删除备份".into(),
+                                        message: "确定删除此备份文件？".into(),
                                         on_confirm: ConfirmAction::DeleteSingleBackup(i),
                                     });
                                 }
                                 backup::BackupAction::BatchDelete(indices) => {
                                     // 批量删除前弹出确认对话框
                                     self.show_confirm_dialog = Some(ConfirmDialog {
-                                        title: "\u{6279}\u{91cf}\u{5220}\u{9664}".into(),
-                                        message: format!("\u{786e}\u{5b9a}\u{5220}\u{9664}\u{9009}\u{4e2d}\u{7684} {} \u{4e2a}\u{5907}\u{4efd}\u{6587}\u{4ef6}\u{ff1f}", indices.len()),
+                                        title: "批量删除".into(),
+                                        message: format!("确定删除选中的 {} 个备份文件？", indices.len()),
                                         on_confirm: ConfirmAction::DeleteBackups(indices),
                                     });
                                 }
                             }
                         }
                     }
-                    // ----- 工具箱面板（LZ 压缩/解压、Base64 编解码） -----
+                    // ----- 工具箱面板（LZ/Base64/存档信息/完整性检查/批量扫描/修复） -----
                     TabMode::Toolbox => {
-                        toolbox::render(ui, &mut self.toolbox);
+                        let actions = toolbox::render(ui, &mut self.toolbox);
+                        for action in actions {
+                            match action {
+                                ToolboxAction::GetSaveInfo(path) => {
+                                    self.toolbox.info_result =
+                                        Some(game_tool_core::integrity::get_save_info(&path));
+                                }
+                                ToolboxAction::IntegrityCheck(path) => {
+                                    self.toolbox.check_result =
+                                        Some(game_tool_core::integrity::check_save_integrity(&path));
+                                }
+                                ToolboxAction::BatchCheck(dir) => {
+                                    self.toolbox.batch_results =
+                                        game_tool_core::integrity::batch_check_saves(&dir);
+                                }
+                                ToolboxAction::RepairSave(path) => {
+                                    self.toolbox.repair_result =
+                                        Some(game_tool_core::integrity::attempt_repair(&path));
+                                }
+                                ToolboxAction::ClearCheck => {
+                                    self.toolbox.check_result = None;
+                                }
+                                ToolboxAction::ClearBatch => {
+                                    self.toolbox.batch_results.clear();
+                                }
+                                ToolboxAction::ClearRepair => {
+                                    self.toolbox.repair_result = None;
+                                }
+                            }
+                        }
                     }
                     // ----- 设置面板 -----
                     TabMode::Settings => {
@@ -1173,7 +1228,7 @@ impl eframe::App for AppState {
                                 settings::SettingsAction::SetPort(port) => {
                                     self.rt_panel.port = port;
                                     if self.rt_panel.conn.is_some() {
-                                        self.status_message = "\u{7aef}\u{53e3}\u{5df2}\u{66f4}\u{6539}\u{ff0c}\u{8bf7}\u{65ad}\u{5f00}\u{540e}\u{91cd}\u{65b0}\u{8fde}\u{63a5}\u{4ee5}\u{751f}\u{6548}\u{3002}".into();
+                                        self.status_message = "端口已更改，请断开后重新连接以生效。".into();
                                     }
                                 }
                                 settings::SettingsAction::RemoveRecentGame(path) => {
@@ -1181,8 +1236,8 @@ impl eframe::App for AppState {
                                 }
                                 settings::SettingsAction::ClearRecentGames => {
                                     self.show_confirm_dialog = Some(ConfirmDialog {
-                                        title: "\u{6e05}\u{9664}\u{8bb0}\u{5f55}".into(),
-                                        message: "\u{786e}\u{5b9a}\u{6e05}\u{9664}\u{6240}\u{6709}\u{6700}\u{8fd1}\u{6e38}\u{620f}\u{8bb0}\u{5f55}\u{ff1f}".into(),
+                                        title: "清除记录".into(),
+                                        message: "确定清除所有最近游戏记录？".into(),
                                         on_confirm: ConfirmAction::ClearRecentGames,
                                     });
                                 }
@@ -1192,8 +1247,8 @@ impl eframe::App for AppState {
                                         cfg.tcp_port = self.rt_panel.port;
                                         cfg.recent_games = self.recent_games.clone();
                                         match game_tool_core::config::save_config(&cfg) {
-                                            Ok(()) => self.status_message = "\u{8bbe}\u{7f6e}\u{5df2}\u{4fdd}\u{5b58}".into(),
-                                            Err(e) => self.status_message = format!("\u{4fdd}\u{5b58}\u{5931}\u{8d25}: {}", e),
+                                            Ok(()) => self.status_message = "设置已保存".into(),
+                                            Err(e) => self.status_message = format!("保存失败: {}", e),
                                         }
                                     }
                                 }
@@ -1233,7 +1288,7 @@ impl eframe::App for AppState {
                                 self.save_panel.format = create_format(&self.engine);
                                 self.save_panel.panel_mode =
                                     factory::engine_to_panel_mode(&self.engine);
-                                self.save_panel.readonly = factory::is_readonly(&self.engine);
+                                self.save_panel.readonly = false;
                                 self.save_panel.selected_save = None;
                                 self.save_panel.save_data = None;
                                 self.save_panel.summary = None;
@@ -1310,20 +1365,20 @@ impl eframe::App for AppState {
         // 选项：保存并切换 / 丢弃修改 / 取消
         // ===================================================================
         if self.show_unsaved_dialog {
-            egui::Window::new("\u{672a}\u{4fdd}\u{5b58}\u{7684}\u{4fee}\u{6539}")
+            egui::Window::new("未保存的修改")
                 .collapsible(false)
                 .resizable(false)
                 .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
                 .show(ctx, |ui| {
-                    ui.label(format!("\u{6709} {} \u{5904}\u{672a}\u{4fdd}\u{5b58}\u{7684}\u{4fee}\u{6539}\u{3002}\u{662f}\u{5426}\u{4fdd}\u{5b58}\u{540e}\u{518d}\u{5207}\u{6362}\u{ff1f}", self.save_panel.dirty_count));
+                    ui.label(format!("有 {} 处未保存的修改。是否保存后再切换？", self.save_panel.dirty_count));
                     ui.horizontal(|ui| {
-                        if ui.button("\u{4fdd}\u{5b58}\u{5e76}\u{5207}\u{6362}").clicked()
+                        if ui.button("保存并切换").clicked()
                             && self.save_current()
                         {
                             self.show_unsaved_dialog = false;
                             self.switch_game();
                         }
-                        if ui.button("\u{4e22}\u{5f03}\u{4fee}\u{6539}").clicked() {
+                        if ui.button("丢弃修改").clicked() {
                             // 丢弃修改：重新从文件加载原始数据
                             let mut reload_ok = false;
                             if let Some(ref path) = self.save_panel.selected_save {
@@ -1338,14 +1393,14 @@ impl eframe::App for AppState {
                                 }
                             }
                             if !reload_ok {
-                                self.status_message = "\u{6062}\u{590d}\u{5b58}\u{6863}\u{6570}\u{636e}\u{5931}\u{8d25}".into();
+                                self.status_message = "恢复存档数据失败".into();
                             } else {
                                 self.save_panel.dirty_count = 0;
                                 self.show_unsaved_dialog = false;
                                 self.switch_game();
                             }
                         }
-                        if ui.button("\u{53d6}\u{6d88}").clicked() {
+                        if ui.button("取消").clicked() {
                             self.show_unsaved_dialog = false;
                         }
                     });
@@ -1369,7 +1424,7 @@ impl eframe::App for AppState {
                     .show(ctx, |ui| {
                         ui.label(&message);
                         ui.horizontal(|ui| {
-                            if ui.button("\u{786e}\u{8ba4}").clicked() {
+                            if ui.button("确认").clicked() {
                                 match &dlg.on_confirm {
                                     ConfirmAction::DeleteBackups(indices) => {
                                         // 批量删除：倒序删除避免索引偏移
@@ -1394,7 +1449,7 @@ impl eframe::App for AppState {
                                 }
                                 self.show_confirm_dialog = None;
                             }
-                            if ui.button("\u{53d6}\u{6d88}").clicked() {
+                            if ui.button("取消").clicked() {
                                 self.show_confirm_dialog = None;
                             }
                         });
