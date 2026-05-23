@@ -1,0 +1,43 @@
+<h2>布局方向 — 你对哪个更感兴趣？</h2>
+<p class="subtitle">当前是固定双面板，以下提供几种重新组织信息架构的方向</p>
+
+<div class="options" data-multiselect>
+  <div class="option" data-choice="tabbed" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>标签页模式</h3>
+      <p>存档编辑和实时修改改为顶部标签切换，不再并排。每个标签独占全宽，信息密度更高，适合小窗口</p>
+    </div>
+  </div>
+  <div class="option" data-choice="sidebar" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>侧栏导航模式</h3>
+      <p>左侧常驻导航栏（游戏选择/存档/实时/设置），右侧为内容区。功能模块化，可扩展到更多工具</p>
+    </div>
+  </div>
+  <div class="option" data-choice="dashboard" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>仪表盘概览模式</h3>
+      <p>首页为概览仪表盘（游戏信息+快速操作），存档编辑和实时面板作为子视图按需打开。更接近专业工具风格</p>
+    </div>
+  </div>
+  <div class="option" data-choice="keep-split" onclick="toggleSelect(this)">
+    <div class="letter">D</div>
+    <div class="content">
+      <h3>保留双面板但对等重构</h3>
+      <p>保持左右分栏但统一两面板的交互和视觉语言，加入可拖拽分隔条、面板折叠等功能</p>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>当前已知痛点（请补充你的感受）</h3>
+  <ul>
+    <li>两个面板功能不对等（存档面板有搜索/分类，实时面板缺这些）</li>
+    <li>字段列表很长时没有好的导航方式</li>
+    <li>整体视觉像"调试工具"而非"产品级工具"</li>
+    <li>无暗色模式，长时间使用刺眼</li>
+  </ul>
+</div>

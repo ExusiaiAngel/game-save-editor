@@ -1,7 +1,5 @@
 //! 错误类型定义
 
-#![allow(unused)]
-
 /// 游戏工具核心错误类型
 #[derive(thiserror::Error, Debug)]
 pub enum GameToolError {

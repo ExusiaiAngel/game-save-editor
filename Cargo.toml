@@ -7,6 +7,7 @@ members = [
     "crates/engines/unreal",
     "crates/engines/generic",
     "crates/app",
+    "crates/gui",
 ]
 
 [workspace.dependencies]
@@ -23,6 +24,9 @@ tempfile = "3"
 lz-str = "0.2"
 toml = "0.8"
 chrono = "0.4"
+eframe = "0.31"
+egui = "0.31"
+rfd = { version = "0.15", default-features = false, features = ["file-handle-inner"] }
 
 [profile.release]
 opt-level = "z"

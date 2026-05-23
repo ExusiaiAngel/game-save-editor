@@ -4,28 +4,36 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 
+use game_tool_core::{backup, error::GameToolError, ISaveFormat, ModifiableField, SaveSummary};
 use serde_json::{Map, Value};
-use game_tool_core::{
-    ISaveFormat, ModifiableField, SaveSummary,
-    error::GameToolError,
-    backup,
-};
 
 pub struct GenericJsonFormat;
 
 impl Default for GenericJsonFormat {
-    fn default() -> Self { Self }
+    fn default() -> Self {
+        Self
+    }
 }
 
 impl GenericJsonFormat {
-    pub fn new() -> Self { Self }
+    pub fn new() -> Self {
+        Self
+    }
 }
 
 impl ISaveFormat for GenericJsonFormat {
-    fn name(&self) -> &str { "JSON (通用)" }
-    fn extensions(&self) -> Vec<String> { vec![".json".into()] }
-    fn engine_type(&self) -> &str { "generic" }
-    fn magic_bytes(&self) -> Option<&[u8]> { None }
+    fn name(&self) -> &str {
+        "JSON (通用)"
+    }
+    fn extensions(&self) -> Vec<String> {
+        vec![".json".into()]
+    }
+    fn engine_type(&self) -> &str {
+        "generic"
+    }
+    fn magic_bytes(&self) -> Option<&[u8]> {
+        None
+    }
 
     fn load(&self, filepath: &str) -> Result<Value, GameToolError> {
         let raw = fs::read_to_string(filepath)
@@ -44,13 +52,15 @@ impl ISaveFormat for GenericJsonFormat {
     fn save(&self, filepath: &str, data: &Value) -> Result<(), GameToolError> {
         let path = Path::new(filepath);
         let _ = backup::save_backup(path, 10);
-        let flat = data.get("_flat").and_then(|v| v.as_object())
-            .cloned().unwrap_or_default();
+        let flat = data
+            .get("_flat")
+            .and_then(|v| v.as_object())
+            .cloned()
+            .unwrap_or_default();
         let root = unflatten_json(&flat);
         let json_str = serde_json::to_string_pretty(&root)
             .map_err(|e| GameToolError::ArchiveSaveError(e.to_string()))?;
-        fs::write(path, &json_str)
-            .map_err(|e| GameToolError::ArchiveSaveError(e.to_string()))?;
+        fs::write(path, &json_str).map_err(|e| GameToolError::ArchiveSaveError(e.to_string()))?;
         Ok(())
     }
 
@@ -58,7 +68,9 @@ impl ISaveFormat for GenericJsonFormat {
         let dir = Path::new(game_dir);
         for sub in &["data", "saves", "save", "game"] {
             let d = dir.join(sub);
-            if d.is_dir() { return Some(d.to_string_lossy().to_string()); }
+            if d.is_dir() {
+                return Some(d.to_string_lossy().to_string());
+            }
         }
         None
     }
@@ -86,8 +98,10 @@ impl ISaveFormat for GenericJsonFormat {
                     _ => "str",
                 };
                 let category = guess_category(key);
-                let display_name = FIELD_NAME_MAP.get(key.as_str())
-                    .copied().unwrap_or(key.as_str());
+                let display_name = FIELD_NAME_MAP
+                    .get(key.as_str())
+                    .copied()
+                    .unwrap_or(key.as_str());
                 fields.push(ModifiableField {
                     category,
                     field_id: format!("json_{}", key),
@@ -102,7 +116,11 @@ impl ISaveFormat for GenericJsonFormat {
     }
 
     fn apply_field(&self, data: &mut Value, field: &ModifiableField) -> Result<(), GameToolError> {
-        let key = field.field_id.strip_prefix("json_").unwrap_or(&field.field_id).to_string();
+        let key = field
+            .field_id
+            .strip_prefix("json_")
+            .unwrap_or(&field.field_id)
+            .to_string();
         if let Some(flat) = data.pointer_mut("/_flat") {
             if let Some(obj) = flat.as_object_mut() {
                 obj.insert(key, field.save_value.clone());
@@ -149,11 +167,42 @@ fn unflatten_json(flat: &Map<String, Value>) -> Value {
 }
 
 fn insert_by_path(map: &mut Map<String, Value>, path: &str, value: Value) {
+    // Handle bracket notation: "items[0].name" or "items[0]"
+    if let Some(bracket_start) = path.find('[') {
+        let array_key = &path[..bracket_start];
+        let rest = &path[bracket_start..]; // "[0].name" or "[0]"
+        let entry = map
+            .entry(array_key.to_string())
+            .or_insert_with(|| Value::Array(Vec::new()));
+        if let Some(arr) = entry.as_array_mut() {
+            if let Some(bracket_end) = rest.find(']') {
+                let idx: usize = rest[1..bracket_end].parse().unwrap_or(0);
+                while arr.len() <= idx {
+                    arr.push(Value::Null);
+                }
+                let remainder = &rest[bracket_end + 1..];
+                if remainder.is_empty() {
+                    arr[idx] = value;
+                } else if let Some(after_dot) = remainder.strip_prefix('.') {
+                    if !arr[idx].is_object() && !arr[idx].is_array() {
+                        arr[idx] = Value::Object(Map::new());
+                    }
+                    insert_by_path_inner(&mut arr[idx], after_dot, value);
+                }
+            }
+        }
+        return;
+    }
+
     if let Some(dot_pos) = path.find('.') {
         let key = &path[..dot_pos];
-        let rest = &path[dot_pos+1..];
+        let rest = &path[dot_pos + 1..];
         let entry = map.entry(key.to_string()).or_insert_with(|| {
-            if rest.starts_with('[') { Value::Array(Vec::new()) } else { Value::Object(Map::new()) }
+            if rest.starts_with('[') {
+                Value::Array(Vec::new())
+            } else {
+                Value::Object(Map::new())
+            }
         });
         insert_by_path_inner(entry, rest, value);
     } else {
@@ -162,23 +211,35 @@ fn insert_by_path(map: &mut Map<String, Value>, path: &str, value: Value) {
 }
 
 fn insert_by_path_inner(node: &mut Value, path: &str, value: Value) {
-    if let Some(bracket_end) = path.find(']') {
-        let idx: usize = path[1..bracket_end].parse().unwrap_or(0);
-        let rest = &path[bracket_end+1..];
-        if let Some(arr) = node.as_array_mut() {
-            while arr.len() <= idx { arr.push(Value::Null); }
-            let rest = rest.strip_prefix('.').unwrap_or(rest);
-            if rest.is_empty() {
-                arr[idx] = value;
-            } else {
-                insert_by_path_inner(&mut arr[idx], rest, value);
+    // Handle bracket notation at any level
+    if let Some(bracket_start) = path.find('[') {
+        if let Some(bracket_end) = path.find(']') {
+            let idx: usize = path[bracket_start + 1..bracket_end].parse().unwrap_or(0);
+            let remainder = &path[bracket_end + 1..];
+            if let Some(arr) = node.as_array_mut() {
+                while arr.len() <= idx {
+                    arr.push(Value::Null);
+                }
+                if remainder.is_empty() {
+                    arr[idx] = value;
+                } else if let Some(after_dot) = remainder.strip_prefix('.') {
+                    if !arr[idx].is_object() && !arr[idx].is_array() {
+                        arr[idx] = Value::Object(Map::new());
+                    }
+                    insert_by_path_inner(&mut arr[idx], after_dot, value);
+                }
             }
         }
-    } else if let Some(dot_pos) = path.find('.') {
+        return;
+    }
+
+    if let Some(dot_pos) = path.find('.') {
         let key = &path[..dot_pos];
-        let rest = &path[dot_pos+1..];
+        let rest = &path[dot_pos + 1..];
         if let Some(obj) = node.as_object_mut() {
-            let entry = obj.entry(key.to_string()).or_insert(Value::Object(Map::new()));
+            let entry = obj
+                .entry(key.to_string())
+                .or_insert(Value::Object(Map::new()));
             insert_by_path_inner(entry, rest, value);
         }
     } else if let Some(obj) = node.as_object_mut() {
@@ -201,19 +262,115 @@ fn find_gold_like(flat: Option<&Map<String, Value>>) -> Option<i32> {
 
 fn guess_category(key: &str) -> String {
     let lower = key.to_lowercase();
-    if lower.contains("gold") || lower.contains("money") || lower.contains("金币") {
+    if lower.contains("gold")
+        || lower.contains("money")
+        || lower.contains("coin")
+        || lower.contains("cash")
+        || lower.contains("credit")
+        || lower.contains("currency")
+        || lower.contains("金币")
+        || lower.contains("金钱")
+    {
         return "gold".into();
     }
-    if lower.contains("hp") || lower.contains("health") {
-        return "actor".into();
+    if lower.contains("hp")
+        || lower.contains("health")
+        || lower.contains("mp")
+        || lower.contains("mana")
+        || lower.contains("atk")
+        || lower.contains("def")
+        || lower.contains("str")
+        || lower.contains("int")
+        || lower.contains("dex")
+        || lower.contains("vit")
+        || lower.contains("luk")
+        || lower.contains("luck")
+        || lower.contains("speed")
+        || lower.contains("spd")
+        || lower.contains("level")
+        || lower.contains("exp")
+        || lower.contains("stat")
+    {
+        return "stats".into();
+    }
+    if lower.contains("item")
+        || lower.contains("inventory")
+        || lower.contains("weapon")
+        || lower.contains("armor")
+        || lower.contains("equip")
+    {
+        return "inventory".into();
+    }
+    if lower.contains("stage")
+        || lower.contains("chapter")
+        || lower.contains("progress")
+        || lower.contains("score")
+        || lower.contains("quest")
+        || lower.contains("mission")
+    {
+        return "progress".into();
+    }
+    if lower.contains("volume")
+        || lower.contains("language")
+        || lower.contains("difficulty")
+        || lower.contains("setting")
+        || lower.contains("config")
+    {
+        return "settings".into();
+    }
+    if lower.contains("name")
+        || lower.contains("player")
+        || lower.contains("character")
+        || lower.contains("actor")
+    {
+        return "character".into();
     }
     "general".into()
 }
 
 static FIELD_NAME_MAP: std::sync::LazyLock<HashMap<&str, &str>> = std::sync::LazyLock::new(|| {
     HashMap::from([
-        ("gold", "金币"), ("money", "金钱"), ("hp", "生命值"), ("health", "生命"),
-        ("mp", "魔力值"), ("level", "等级"), ("exp", "经验值"), ("name", "名称"),
+        ("gold", "金币"),
+        ("money", "金钱"),
+        ("coin", "硬币"),
+        ("cash", "现金"),
+        ("currency", "货币"),
+        ("credits", "积分"),
+        ("hp", "生命值"),
+        ("health", "生命"),
+        ("maxHp", "最大生命"),
+        ("maxHealth", "最大生命"),
+        ("mp", "魔力值"),
+        ("mana", "魔力"),
+        ("maxMp", "最大魔力"),
+        ("level", "等级"),
+        ("exp", "经验值"),
+        ("experience", "经验"),
+        ("atk", "攻击力"),
+        ("def", "防御力"),
+        ("spd", "速度"),
+        ("speed", "速度"),
+        ("str", "力量"),
+        ("int", "智力"),
+        ("dex", "敏捷"),
+        ("vit", "体力"),
+        ("luk", "运气"),
+        ("luck", "运气"),
+        ("name", "名称"),
+        ("playerName", "玩家名"),
+        ("score", "分数"),
+        ("highScore", "最高分"),
+        ("stage", "关卡"),
+        ("chapter", "章节"),
+        ("progress", "进度"),
+        ("item", "物品"),
+        ("items", "物品"),
+        ("inventory", "背包"),
+        ("weapon", "武器"),
+        ("armor", "护甲"),
+        ("equipment", "装备"),
+        ("volume", "音量"),
+        ("difficulty", "难度"),
     ])
 });
 

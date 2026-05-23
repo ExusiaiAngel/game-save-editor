@@ -1,0 +1,97 @@
+<h2>视觉风格方向 — 你偏好哪种感觉？</h2>
+<p class="subtitle">选取了 B (侧栏导航) 作为布局基础，下面展示几种不同风格的侧栏设计语言</p>
+
+<div class="cards">
+  <div class="card" data-choice="modern-dark" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="background:#1a1a2e; padding:20px; border-radius:8px; color:#e0e0e0; font-family:monospace; font-size:12px;">
+        <div style="display:flex; gap:12px;">
+          <div style="width:140px; background:#16213e; padding:12px; border-radius:6px;">
+            <b style="color:#e94560;">▼ 游戏工具</b><br>
+            <span style="color:#888;">┃</span> <span style="color:#0f3460;background:#0f3460;padding:0 6px;border-radius:3px;">■</span> 仪表盘<br>
+            <span style="color:#888;">┃</span> 存档编辑<br>
+            <span style="color:#888;">┃</span> 实时修改<br>
+            <span style="color:#888;">┃</span> 备份管理<br>
+            <span style="color:#888;">┃</span> 设置<br>
+            <br>
+            <span style="color:#555;">游戏: 冒险传说<br>RPG Maker MV</span>
+          </div>
+          <div style="flex:1; background:#16213e; padding:12px; border-radius:6px;">
+            <b>存档编辑</b><br>
+            <div style="background:#0f3460; padding:8px; margin-top:8px; border-radius:4px;">Summary Card</div>
+            <div style="background:#0f3460; padding:8px; margin-top:4px; border-radius:4px;">Field Table</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>深色科技风</h3>
+      <p>深蓝/灰底 + 霓虹强调色，类似 VS Code / Game Engine 风格，游戏开发者熟悉</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="clean-light" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="background:#f8f9fa; padding:20px; border-radius:8px; color:#333; font-family:monospace; font-size:12px;">
+        <div style="display:flex; gap:12px;">
+          <div style="width:140px; background:#fff; padding:12px; border-radius:6px; border:1px solid #e5e7eb; box-shadow:0 1px 2px rgba(0,0,0,0.05);">
+            <b style="color:#2563eb;">▼ 游戏工具</b><br>
+            <span style="color:#9ca3af;">┃</span> <span style="background:#eff6ff;padding:0 6px;border-radius:3px;color:#2563eb;">■</span> 仪表盘<br>
+            <span style="color:#9ca3af;">┃</span> 存档编辑<br>
+            <span style="color:#9ca3af;">┃</span> 实时修改<br>
+            <span style="color:#9ca3af;">┃</span> 备份管理<br>
+            <span style="color:#9ca3af;">┃</span> 设置<br>
+            <br>
+            <span style="color:#888;font-size:10px;">游戏: 冒险传说<br>RPG Maker MV</span>
+          </div>
+          <div style="flex:1; background:#fff; padding:12px; border-radius:6px; border:1px solid #e5e7eb;">
+            <b>存档编辑</b><br>
+            <div style="background:#f1f5f9; padding:8px; margin-top:8px; border-radius:4px;">Summary Card</div>
+            <div style="background:#f1f5f9; padding:8px; margin-top:4px; border-radius:4px;">Field Table</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>简洁现代风</h3>
+      <p>浅色/白底 + 蓝色点缀，干净专业的工具感，类似 Notion / Linear 风格</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="gaming" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="background:#0d1117; padding:20px; border-radius:8px; color:#c9d1d9; font-family:monospace; font-size:12px;">
+        <div style="display:flex; gap:12px;">
+          <div style="width:140px; background:#161b22; padding:12px; border-radius:6px; border:1px solid #30363d;">
+            <b style="color:#58a6ff;">▼ 🎮 游戏工具</b><br>
+            <span style="color:#30363d;">┃</span> <span style="color:#3fb950;">▶</span> 仪表盘<br>
+            <span style="color:#30363d;">┃</span> 🗃 存档编辑<br>
+            <span style="color:#30363d;">┃</span> ⚡ 实时修改<br>
+            <span style="color:#30363d;">┃</span> 📦 备份管理<br>
+            <span style="color:#30363d;">┃</span> ⚙ 设置<br>
+            <br>
+            <span style="color:#484f58;font-size:10px;">游戏: 冒险传说<br>RPG Maker MV</span>
+          </div>
+          <div style="flex:1; background:#161b22; padding:12px; border-radius:6px; border:1px solid #30363d;">
+            <b style="color:#58a6ff;">存档编辑</b><br>
+            <div style="background:#0d1117; border:1px solid #30363d; padding:8px; margin-top:8px; border-radius:4px;">Summary Card</div>
+            <div style="background:#0d1117; border:1px solid #30363d; padding:8px; margin-top:4px; border-radius:4px;">Field Table</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>游戏主题风</h3>
+      <p>GitHub 暗色 + 游戏化元素（图标、进度条、像素风细节），突出"游戏工具"的定位</p>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>你还可以关注的方面</h3>
+  <ul>
+    <li><b>暗色模式:</b> 是否需要一个切换开关？还是固定一种主题？</li>
+    <li><b>字体风格:</b> 保持等宽（调试感）还是混合字体（工具感）？</li>
+    <li><b>信息密度:</b> 偏向紧凑效率型还是宽松舒适型？</li>
+  </ul>
+</div>

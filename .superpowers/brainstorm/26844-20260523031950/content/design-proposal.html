@@ -1,0 +1,159 @@
+<h2>设计方案 — 侧栏导航 + 游戏主题 UI</h2>
+<p class="subtitle">基于你的选择：侧栏导航、游戏主题风、6 个模块全保留</p>
+
+<div class="section">
+<h3>整体架构</h3>
+<div style="background:#0d1117; padding:16px; border-radius:8px; color:#c9d1d9; font-family:monospace; font-size:12px; border:1px solid #30363d;">
+
+<pre style="margin:0;line-height:1.8;">
+┌──────────────────────────────────────────────────────────────┐
+│ TOP BAR: 🎮 GameSaveEditor   游戏: 冒险传说 | RPG Maker MV    │ ← 精简顶栏
+├──────────┬───────────────────────────────────────────────────┤
+│          │                                                   │
+│  SIDEBAR │  ■ 内容区域 (右侧主视图)                            │
+│          │                                                   │
+│  ▶ 仪表盘 │  ┌─────────────────────────────────────────────┐  │
+│    工具箱  │  │  │                      │                │  │
+│  ▷ 设置   │  │  │   当前视图内容         │                │  │
+│  ▷ 存档   │  │  │                      │                │  │
+│  ▷ 实时   │  │  │   (根据选中导航项      │                │  │
+│  ▷ 备份   │  │  │    切换显示)           │                │  │
+│          │  │  │                      │                │  │
+│  ──────  │  └─────────────────────────────────────────────┘  │
+│  游戏信息  │                                                   │
+│  🎮 冒险传说 │                                                   │
+│  RPG Maker │                                                   │
+│  MV        │                                                   │
+│   ● 未连接  │                                                   │
+├──────────┴───────────────────────────────────────────────────┤
+│ STATUS BAR: 就绪  |  共 1234 字段  |  D:\Games\MyGame          │
+└──────────────────────────────────────────────────────────────┘
+</pre>
+</div>
+</div>
+
+<div class="section">
+<h3>六视图详情</h3>
+
+<div class="split">
+
+<div class="mockup">
+<div class="mockup-header">① 仪表盘 (首页)</div>
+<div class="mockup-body" style="font-family:monospace;font-size:11px;color:#c9d1d9;background:#0d1117;padding:12px;">
+<pre style="margin:0;">
+┌ 快速操作 ──────────────────────────┐
+│ [打开游戏...]  [打开存档...]        │
+└────────────────────────────────────┘
+
+┌ 游戏信息 ──────────────────────────┐
+│ 🎮 冒险传说          RPG Maker MV  │
+│ 存档: 12  | 备份: 8  | 字段: 1234 │
+│ ● 未连接   (端口: 19999) [连接]    │
+└────────────────────────────────────┘
+
+┌ 最近存档 ──────────────────────────┐
+│ ⬡ file1.rpgsave  128KB  05-22    │
+│ ⬡ file2.rpgsave  130KB  05-21    │
+│ ⬡ file3.rpgsave  127KB  05-20    │
+└────────────────────────────────────┘
+</pre>
+</div>
+</div>
+
+<div class="mockup">
+<div class="mockup-header">② 存档编辑</div>
+<div class="mockup-body" style="font-family:monospace;font-size:11px;color:#c9d1d9;background:#0d1117;padding:12px;">
+<pre style="margin:0;">
+📁 file1.rpgsave [▼] [🔄刷新]
+───────────────────────────
+┌ 摘要 ──────────────────┐
+│ 💰 金币: 9999 G        │
+│ 👥 队伍: Eric, Natalie │
+│ ⏱  时长: 12:34:56     │
+└────────────────────────┘
+
+🔍 [搜索...]  [分类:全部 ▼] [跳转ID]
+───────────────────────────
+  类别    名称    值
+  ──────────────────
+  金币    金币    [9999]
+  开关    大门    [✓]
+  变量    步数    [5000]  *
+
+[保存更改 (3处)]  [撤销]
+</pre>
+</div>
+</div>
+
+</div>
+
+<div class="split">
+
+<div class="mockup">
+<div class="mockup-header">③ 实时修改</div>
+<div class="mockup-body" style="font-family:monospace;font-size:11px;color:#c9d1d9;background:#0d1117;padding:12px;">
+<pre style="margin:0;">
+● 已连接 :19999  [断开] [注入插件]
+───────────────────────────
+🔍 [搜索...]  [分类:全部 ▼]
+▶ 自动刷新  [📥手动刷新]  🔒 3
+───────────────────────────
+  类别    名称    值     🔒
+  ──────────────────────
+  金币    金币    [9999]  🔓
+  开关    大门    [✓]    🔒
+  变量    步数    [5000]  🔓
+
+📤 存档 ←→ 实时 📥  (底部快捷拷贝栏)
+</pre>
+</div>
+</div>
+
+<div class="mockup">
+<div class="mockup-header">④ 备份管理</div>
+<div class="mockup-body" style="font-family:monospace;font-size:11px;color:#c9d1d9;background:#0d1117;padding:12px;">
+<pre style="margin:0;">
+备份列表 — file1.rpgsave (5 个备份)
+───────────────────────────
+  时间戳              大小    操作
+  ──────────────────────────
+  2026-05-22 14:30  128KB  [恢复] [删除]
+  2026-05-21 09:15  126KB  [恢复] [删除]
+  2026-05-20 18:45  124KB  [恢复] [删除]
+</pre>
+</div>
+</div>
+
+</div>
+</div>
+
+<div class="section">
+<h3>视觉设计系统</h3>
+<div style="overflow-x:auto;">
+<table style="width:100%;border-collapse:collapse;font-size:13px;">
+<tr style="background:#161b22;"><th style="padding:8px;text-align:left;color:#58a6ff;">要素</th><th style="padding:8px;text-align:left;color:#58a6ff;">方案</th></tr>
+<tr><td style="padding:8px;border-bottom:1px solid #30363d;">底色</td><td style="padding:8px;border-bottom:1px solid #30363d;">#0d1117 (主背景) / #161b22 (卡片) / #21262d (悬浮)</td></tr>
+<tr><td style="padding:8px;border-bottom:1px solid #30363d;">强调色</td><td style="padding:8px;border-bottom:1px solid #30363d;">#58a6ff (蓝) 主色 / #3fb950 (绿) 成功 / #d29922 (黄) 警告</td></tr>
+<tr><td style="padding:8px;border-bottom:1px solid #30363d;">字体</td><td style="padding:8px;border-bottom:1px solid #30363d;">Consolas / Cascadia Code 作为主等宽字体，Segoe UI 用于标题</td></tr>
+<tr><td style="padding:8px;border-bottom:1px solid #30363d;">图标</td><td style="padding:8px;border-bottom:1px solid #30363d;">保留 Unicode 表情符号，但统一风格（↗替换 ▶ 等）</td></tr>
+<tr><td style="padding:8px;border-bottom:1px solid #30363d;">圆角</td><td style="padding:8px;border-bottom:1px solid #30363d;">卡片 6px / 按钮 4px / 输入框 4px</td></tr>
+<tr><td style="padding:8px;border-bottom:1px solid #30363d;">间距</td><td style="padding:8px;border-bottom:1px solid #30363d;">模块间距 12px / 内边距 8px / 紧凑但不拥挤</td></tr>
+<tr><td style="padding:8px;">暗色切换</td><td style="padding:8px;">提供 🌙/☀ 一键切换，默认暗色</td></tr>
+</table>
+</div>
+</div>
+
+<div class="pros-cons">
+<div class="pros"><h4>优点</h4><ul>
+<li>模块化导航，结构清晰可扩展</li>
+<li>每个视图独占全宽，字段列表不再拥挤</li>
+<li>仪表盘提供统一入口，降低上手门槛</li>
+<li>备份管理独立成视图，更符合专业工具定位</li>
+<li>暗色游戏主题，符合目标用户审美</li>
+</ul></div>
+<div class="cons"><h4>风险</h4><ul>
+<li>存档编辑和实时修改分成两个标签，跨面板拷贝需重新设计</li>
+<li>egui 没有原生"router/导航"概念，需自行管理视图状态</li>
+<li>侧栏宽度需权衡（太窄看不清、太宽挤占内容区）</li>
+</ul></div>
+</div>

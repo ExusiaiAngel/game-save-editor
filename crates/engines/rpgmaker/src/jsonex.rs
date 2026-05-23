@@ -9,11 +9,10 @@ fn has_json_ex_c_format_depth(data: &Value, depth: usize) -> bool {
             if map.contains_key("@c") {
                 return true;
             }
-            map.values().any(|v| has_json_ex_c_format_depth(v, depth + 1))
+            map.values()
+                .any(|v| has_json_ex_c_format_depth(v, depth + 1))
         }
-        Value::Array(arr) => arr
-            .iter()
-            .any(|v| has_json_ex_c_format_depth(v, depth + 1)),
+        Value::Array(arr) => arr.iter().any(|v| has_json_ex_c_format_depth(v, depth + 1)),
         _ => false,
     }
 }
@@ -63,10 +62,7 @@ fn expand_sparse_dict_flat(sparse: &Map<String, Value>) -> Vec<Option<Value>> {
     arr
 }
 
-fn expand_sparse_dict_with_default(
-    sparse: &Map<String, Value>,
-    default: &Value,
-) -> Vec<Value> {
+fn expand_sparse_dict_with_default(sparse: &Map<String, Value>, default: &Value) -> Vec<Value> {
     let mut indices: Vec<usize> = sparse
         .keys()
         .filter_map(|k| k.parse::<usize>().ok())
@@ -137,10 +133,7 @@ pub fn ensure_switches_array(data: &mut Value) -> &mut Vec<Value> {
 
     let obj = data.as_object_mut().unwrap();
     if !obj.contains_key("switches") {
-        obj.insert(
-            "switches".to_string(),
-            Value::Object(Map::new()),
-        );
+        obj.insert("switches".to_string(), Value::Object(Map::new()));
     }
 
     {
@@ -150,10 +143,7 @@ pub fn ensure_switches_array(data: &mut Value) -> &mut Vec<Value> {
         }
         let sw_obj = sw.as_object_mut().unwrap();
         if !sw_obj.contains_key("_data") {
-            sw_obj.insert(
-                "_data".to_string(),
-                Value::Array(vec![Value::Bool(false)]),
-            );
+            sw_obj.insert("_data".to_string(), Value::Array(vec![Value::Bool(false)]));
         }
     }
 
@@ -164,10 +154,7 @@ pub fn ensure_switches_array(data: &mut Value) -> &mut Vec<Value> {
         }
         let sw_obj = sw.as_object_mut().unwrap();
         if !sw_obj.contains_key("_data") {
-            sw_obj.insert(
-                "_data".to_string(),
-                Value::Array(vec![Value::Bool(false)]),
-            );
+            sw_obj.insert("_data".to_string(), Value::Array(vec![Value::Bool(false)]));
         }
         let sw_data = sw_obj.get_mut("_data").unwrap();
 
@@ -211,10 +198,7 @@ pub fn ensure_variables_array(data: &mut Value) -> &mut Vec<Value> {
 
     let obj = data.as_object_mut().unwrap();
     if !obj.contains_key("variables") {
-        obj.insert(
-            "variables".to_string(),
-            Value::Object(Map::new()),
-        );
+        obj.insert("variables".to_string(), Value::Object(Map::new()));
     }
 
     {

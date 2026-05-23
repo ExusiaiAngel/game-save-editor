@@ -10,8 +10,16 @@ pub fn encode(data: &[u8]) -> String {
         let n = (b(0) << 16) | (b(1) << 8) | b(2);
         result.push(chars[((n >> 18) & 0x3F) as usize] as char);
         result.push(chars[((n >> 12) & 0x3F) as usize] as char);
-        result.push(if chunk.len() > 1 { chars[((n >> 6) & 0x3F) as usize] } else { b'=' } as char);
-        result.push(if chunk.len() > 2 { chars[(n & 0x3F) as usize] } else { b'=' } as char);
+        result.push(if chunk.len() > 1 {
+            chars[((n >> 6) & 0x3F) as usize]
+        } else {
+            b'='
+        } as char);
+        result.push(if chunk.len() > 2 {
+            chars[(n & 0x3F) as usize]
+        } else {
+            b'='
+        } as char);
     }
     result
 }

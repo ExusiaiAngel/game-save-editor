@@ -1,8 +1,8 @@
 //! Game Save Editor — CLI 测试工具
 
+use game_tool_core::{BridgeCommand, GameBridge, ISaveFormat};
 use std::path::{Path, PathBuf};
 use tracing_subscriber::EnvFilter;
-use game_tool_core::{ISaveFormat, GameBridge, BridgeCommand};
 
 #[derive(rust_embed::RustEmbed)]
 #[folder = "../../profiles"]
@@ -16,11 +16,18 @@ fn main() {
         .ok();
 
     let args: Vec<String> = std::env::args().collect();
-    let game_dir = args.iter().position(|a| a == "--game-dir")
-        .and_then(|i| args.get(i + 1)).map(|s| s.to_string());
+    let game_dir = args
+        .iter()
+        .position(|a| a == "--game-dir")
+        .and_then(|i| args.get(i + 1))
+        .map(|s| s.to_string());
     let do_tcp = args.contains(&"--tcp".to_string());
-    let port: u16 = args.iter().position(|a| a == "--port")
-        .and_then(|i| args.get(i + 1)).and_then(|s| s.parse().ok()).unwrap_or(19999);
+    let port: u16 = args
+        .iter()
+        .position(|a| a == "--port")
+        .and_then(|i| args.get(i + 1))
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(19999);
 
     println!("=== Game Save Editor v{} ===\n", env!("CARGO_PKG_VERSION"));
 
@@ -33,9 +40,13 @@ fn main() {
             let config = game_tool_rpgmaker::scanner::scan_game_directory(dir);
             if config.data_loaded {
                 println!("游戏标题: {}", config.game_title);
-                println!("开关/变量/角色/物品: {} / {} / {} / {}",
-                    config.switch_names.len(), config.variable_names.len(),
-                    config.actor_names.len(), config.item_names.len());
+                println!(
+                    "开关/变量/角色/物品: {} / {} / {} / {}",
+                    config.switch_names.len(),
+                    config.variable_names.len(),
+                    config.actor_names.len(),
+                    config.item_names.len()
+                );
             }
 
             let save_dir = find_save_dir(dir);
@@ -47,23 +58,43 @@ fn main() {
                     Ok(data) => {
                         let summary = fmt.get_summary(&data);
                         println!("\n--- 存档摘要 ---");
-                        println!("金币: {}  队伍: {}人  物品: {}种  次数: {}  时间: {}秒",
-                            summary.gold, summary.party_size, summary.item_count,
-                            summary.save_count, summary.play_time);
+                        println!(
+                            "金币: {}  队伍: {}人  物品: {}种  次数: {}  时间: {}秒",
+                            summary.gold,
+                            summary.party_size,
+                            summary.item_count,
+                            summary.save_count,
+                            summary.play_time
+                        );
                         if !summary.members.iter().all(|m| m.is_empty()) {
-                            println!("队员: {}", summary.members.iter().map(|s| s.as_str()).collect::<Vec<_>>().join(", "));
+                            println!(
+                                "队员: {}",
+                                summary
+                                    .members
+                                    .iter()
+                                    .map(|s| s.as_str())
+                                    .collect::<Vec<_>>()
+                                    .join(", ")
+                            );
                         }
                         println!("\n--- 可修改字段 (前20条) ---");
                         let fields = fmt.scan_fields(&data, dir);
                         for (i, f) in fields.iter().take(20).enumerate() {
-                            println!("  {:3}. [{:12}] {:30} => {}",
-                                i + 1, f.category, f.display_name, f.save_value);
+                            println!(
+                                "  {:3}. [{:12}] {:30} => {}",
+                                i + 1,
+                                f.category,
+                                f.display_name,
+                                f.save_value
+                            );
                         }
                         println!("  ... 共 {} 个字段", fields.len());
                     }
                     Err(e) => println!("加载存档失败: {}", e),
                 }
-            } else { println!("未找到存档文件"); }
+            } else {
+                println!("未找到存档文件");
+            }
 
             if do_tcp {
                 println!("\n--- TCP 桥接 (端口 {}) ---", port);
@@ -94,18 +125,27 @@ fn main() {
 fn find_save_dir(game_dir: &str) -> PathBuf {
     let base = Path::new(game_dir);
     for sub in &["www/save", "www/Save", "save", "Save"] {
-        let d = base.join(sub); if d.is_dir() { return d; }
+        let d = base.join(sub);
+        if d.is_dir() {
+            return d;
+        }
     }
     base.join("www/save")
 }
 
 fn find_latest_save(save_dir: &Path) -> Option<PathBuf> {
-    let mut saves: Vec<_> = std::fs::read_dir(save_dir).ok()?
-        .filter_map(|e| e.ok()).map(|e| e.path())
+    let mut saves: Vec<_> = std::fs::read_dir(save_dir)
+        .ok()?
+        .filter_map(|e| e.ok())
+        .map(|e| e.path())
         .filter(|p| {
             let n = p.file_name().and_then(|n| n.to_str()).unwrap_or("");
-            (n.ends_with(".rpgsave") || n.ends_with(".rmmzsave")) && !n.contains(".bak.") && n != "config.rpgsave" && n != "global.rpgsave"
-        }).collect();
+            (n.ends_with(".rpgsave") || n.ends_with(".rmmzsave"))
+                && !n.contains(".bak.")
+                && n != "config.rpgsave"
+                && n != "global.rpgsave"
+        })
+        .collect();
     saves.sort_by_key(|p| std::fs::metadata(p).and_then(|m| m.modified()).ok());
     saves.pop()
 }

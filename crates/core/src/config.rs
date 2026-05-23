@@ -17,16 +17,12 @@ const ENV_PREFIX: &str = "GAME_TOOL_";
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct AppConfig {
-    /// TCP 桥接端口（与游戏内嵌插件通信）
     pub tcp_port: u16,
-    /// CDP 调试端口（浏览器 DevTools 协议）
     pub cdp_port: u16,
-    /// 备份保留数量
     pub backup_keep: usize,
-    /// 界面语言
     pub language: String,
-    /// 启动时自动连接插件
     pub plugin_auto_connect: bool,
+    pub dark_mode: bool,
 }
 
 impl Default for AppConfig {
@@ -37,6 +33,7 @@ impl Default for AppConfig {
             backup_keep: 10,
             language: "zh-CN".to_string(),
             plugin_auto_connect: true,
+            dark_mode: true,
         }
     }
 }
@@ -267,6 +264,7 @@ plugin_auto_connect = false
             backup_keep: 3,
             language: "ja-JP".to_string(),
             plugin_auto_connect: false,
+            dark_mode: false,
         };
 
         save_config_to(&config, test_path).unwrap();

@@ -1,0 +1,156 @@
+<h2>改动预览：1:1固定分割 + 全量滚动 + 流式排列</h2>
+<p class="subtitle">ui.columns(2) 替代 ui.horizontal，去分页全量滚动，if/else 替代 return</p>
+
+<div class="split">
+  <div class="mockup">
+    <div class="mockup-header">当前：ui.horizontal + 分页 + return bug</div>
+    <div class="mockup-body">
+      <div style="background:#2d2d2d;border-radius:6px;overflow:hidden;font-size:12px;width:100%;max-width:800px;">
+        <div style="background:#1e1e1e;padding:6px 12px;border-bottom:1px solid #555;color:#ccc;font-weight:bold;">GameSaveEditor — 顶栏</div>
+        <div style="display:flex;">
+          <div style="min-width:50%;width:50%;background:#252525;border-right:1px solid #444;padding:6px;">
+            <div style="color:#e0e0e0;font-weight:bold;margin-bottom:4px;">存档编辑</div>
+            <div style="color:#aaa;font-size:10px;">[存档下拉] [刷新]</div>
+            <div style="border-top:1px solid #444;margin:3px 0;"></div>
+            <div style="display:flex;gap:2px;flex-wrap:wrap;margin-bottom:3px;">
+              <span style="background:#2a5a8a;color:#fff;padding:0 4px;border-radius:2px;font-size:9px;">全部</span><span style="background:#2a2a2a;color:#aaa;padding:0 4px;border-radius:2px;font-size:9px;">金币</span><span style="background:#2a2a2a;color:#aaa;padding:0 4px;border-radius:2px;font-size:9px;">开关(150)</span><span style="background:#2a2a2a;color:#aaa;padding:0 4px;border-radius:2px;font-size:9px;">变量(120)</span><span style="background:#2a2a2a;color:#aaa;padding:0 4px;border-radius:2px;font-size:9px;">角色(8)</span><span style="background:#2a2a2a;color:#aaa;padding:0 4px;border-radius:2px;font-size:9px;">物品(30)</span>
+            </div>
+            <div style="border-top:1px solid #444;margin:2px 0;"></div>
+            <div style="height:140px;overflow-y:auto;overflow-x:hidden;">
+              <table style="width:100%;border-collapse:collapse;font-size:9px;">
+                <tr style="color:#aaa;position:sticky;top:0;background:#252525;"><th style="text-align:left;padding:1px 3px;border-bottom:1px solid #555;">分类</th><th style="text-align:left;padding:1px 3px;">名称</th><th style="text-align:left;padding:1px 3px;">值</th></tr>
+                <tr><td style="padding:1px 3px;color:#888;">金币</td><td style="color:#ddd;">Gold</td><td style="color:#ddd;">9999</td></tr>
+                <tr><td style="padding:1px 3px;color:#888;">开关</td><td style="color:#ddd;">Sw001</td><td style="color:#ff6;">ON</td></tr>
+                <tr><td style="padding:1px 3px;color:#888;">变量</td><td style="color:#ddd;">Steps</td><td style="color:#ddd;">42</td></tr>
+                <tr><td style="padding:1px 3px;color:#888;">变量</td><td style="color:#ddd;">Time</td><td style="color:#ddd;">12:34</td></tr>
+                <tr><td style="padding:1px 3px;color:#888;">角色</td><td style="color:#ddd;">HP</td><td style="color:#ddd;">500</td></tr>
+                <tr><td style="padding:1px 3px;color:#888;">物品</td><td style="color:#ddd;">Potion</td><td style="color:#ddd;">5</td></tr>
+              </table>
+            </div>
+            <div style="border-top:1px solid #555;text-align:center;color:#888;font-size:9px;padding:2px;">
+              <span style="color:#666;">◀</span> 第 1/7 页 (共 342 项) <span style="color:#666;">▶</span>
+            </div>
+            <div style="margin-top:3px;border-top:1px solid #444;display:flex;justify-content:space-between;font-size:9px;color:#aaa;">
+              <span style="background:#2a5a2a;color:#fff;padding:1px 4px;border-radius:2px;">保存更改 (0 处)</span>
+            </div>
+          </div>
+          <div style="min-width:50%;width:50%;background:#1e1e1e;padding:6px;">
+            <div style="color:#f44;font-weight:bold;margin-bottom:4px;font-size:11px;">实时修改 <span style="color:#f44;font-size:10px;">⚠ 可能消失</span></div>
+            <div style="color:#888;font-size:10px;">
+              <div style="color:#4a4;margin-bottom:2px;">● 已连接 :9222 [断开]</div>
+              <div style="margin-bottom:2px;"><span style="background:#2a2a2a;padding:1px 3px;border-radius:2px;">🔍 搜索</span> <span style="background:#2a2a2a;padding:1px 3px;">跳转</span> <span style="color:#4a4;">☑ 自动刷新</span></div>
+              <div style="font-weight:bold;margin-bottom:3px;">实时监控 (5 字段)</div>
+              <div style="height:130px;overflow-y:auto;">
+                <div style="display:flex;flex-wrap:wrap;gap:3px;font-size:10px;">
+                  <span style="background:#1a1a1a;padding:1px 3px;border-radius:2px;color:#888;">🔒 开关 Sw001 <span style="color:#ff6;">ON</span></span>
+                  <span style="background:#1a1a1a;padding:1px 3px;border-radius:2px;color:#888;">🔒 变量 Steps <span style="color:#ddd;">42</span></span>
+                  <span style="background:#1a1a1a;padding:1px 3px;border-radius:2px;color:#888;">🔒 变量 Time <span style="color:#ddd;">12:34</span></span>
+                  <span style="background:#1a1a1a;padding:1px 3px;border-radius:2px;color:#888;">🔒 角色 HP <span style="color:#ddd;">500</span></span>
+                  <span style="background:#1a1a1a;padding:1px 3px;border-radius:2px;color:#888;">🔒 物品 Potion <span style="color:#ddd;">5</span></span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div style="background:#1e1e1e;padding:3px 12px;border-top:1px solid #555;color:#888;font-size:9px;">共 342 个字段 | 已选游戏: MyGame</div>
+      </div>
+    </div>
+    <div class="pros-cons">
+      <div class="cons"><h4>问题</h4><ul>
+        <li>return 在 game_dir 为空时退出 update()，右侧消失</li>
+        <li>ui.horizontal + set_min_width 不能保证 1:1</li>
+        <li>字段表每页仅 50 项，需翻页</li>
+        <li>实时修改流式内容少，空间浪费</li>
+      </ul></div>
+    </div>
+  </div>
+
+  <div class="mockup">
+    <div class="mockup-header">改后：ui.columns(2) + 全量滚动 + if/else</div>
+    <div class="mockup-body">
+      <div style="background:#2d2d2d;border-radius:6px;overflow:hidden;font-size:12px;width:100%;max-width:800px;">
+        <div style="background:#1e1e1e;padding:6px 12px;border-bottom:1px solid #555;color:#ccc;font-weight:bold;">GameSaveEditor — 顶栏</div>
+        <div style="display:flex;height:250px;">
+          <div style="flex:1;border-right:2px solid #4a4;background:#252525;padding:6px;display:flex;flex-direction:column;">
+            <div style="color:#e0e0e0;font-weight:bold;margin-bottom:4px;">存档编辑</div>
+            <div style="color:#aaa;font-size:10px;">[存档下拉] [刷新] [跳转 ID]</div>
+            <div style="border-top:1px solid #444;margin:3px 0;"></div>
+            <div style="display:flex;gap:2px;flex-wrap:wrap;margin-bottom:3px;">
+              <span style="background:#2a5a8a;color:#fff;padding:0 4px;border-radius:2px;font-size:9px;">全部</span><span style="background:#2a2a2a;color:#aaa;padding:0 4px;border-radius:2px;font-size:9px;">金币(1)</span><span style="background:#2a2a2a;color:#aaa;padding:0 4px;border-radius:2px;font-size:9px;">开关(150)</span><span style="background:#2a2a2a;color:#aaa;padding:0 4px;border-radius:2px;font-size:9px;">变量(120)</span><span style="background:#2a2a2a;color:#aaa;padding:0 4px;border-radius:2px;font-size:9px;">角色(8)</span><span style="background:#2a2a2a;color:#aaa;padding:0 4px;border-radius:2px;font-size:9px;">物品(30)</span><span style="background:#2a2a2a;color:#aaa;padding:0 4px;border-radius:2px;font-size:9px;">武器</span><span style="background:#2a2a2a;color:#aaa;padding:0 4px;border-radius:2px;font-size:9px;">防具</span>
+            </div>
+            <div style="border-top:1px solid #444;margin:2px 0;"></div>
+            <div style="flex:1;overflow-y:auto;overflow-x:hidden;">
+              <table style="width:100%;border-collapse:collapse;font-size:9px;">
+                <tr style="color:#aaa;position:sticky;top:0;background:#252525;z-index:1;"><th style="text-align:left;padding:1px 3px;border-bottom:1px solid #555;">分类</th><th style="text-align:left;padding:1px 3px;">名称</th><th style="text-align:left;padding:1px 3px;">值</th></tr>
+                <tr><td style="padding:1px 3px;color:#888;">金币</td><td style="color:#ddd;">Gold</td><td style="color:#ddd;">9999</td></tr>
+                <tr><td style="padding:1px 3px;color:#888;">开关</td><td style="color:#ddd;">Sw001</td><td style="color:#ff6;">ON</td></tr>
+                <tr><td style="padding:1px 3px;color:#888;">开关</td><td style="color:#ddd;">Sw002</td><td style="color:#6f6;">OFF</td></tr>
+                <tr><td style="padding:1px 3px;color:#888;">变量</td><td style="color:#ddd;">Steps</td><td style="color:#ddd;">42</td></tr>
+                <tr><td style="padding:1px 3px;color:#888;">变量</td><td style="color:#ddd;">Time</td><td style="color:#ddd;">12:34</td></tr>
+                <tr><td style="padding:1px 3px;color:#888;">角色</td><td style="color:#ddd;">HP</td><td style="color:#ddd;">500</td></tr>
+                <tr><td style="padding:1px 3px;color:#888;">物品</td><td style="color:#ddd;">Potion</td><td style="color:#ddd;">5</td></tr>
+                <tr><td style="padding:1px 3px;color:#888;">变量</td><td style="color:#ddd;">Gold2</td><td style="color:#ddd;">0</td></tr>
+                <tr><td style="padding:1px 3px;color:#888;">开关</td><td style="color:#ddd;">Sw003</td><td style="color:#ff6;">ON</td></tr>
+                <tr style="opacity:0.3"><td style="padding:1px 3px;color:#888;">...</td><td style="color:#ddd;">...</td><td style="color:#ddd;">...</td></tr>
+              </table>
+              <div style="text-align:center;color:#888;font-size:9px;padding:2px;position:sticky;bottom:0;background:#252525;">
+                共 342 项 <span style="color:#4a4;">— 全量滚动，无需翻页</span>
+              </div>
+            </div>
+            <div style="border-top:1px solid #444;display:flex;justify-content:space-between;font-size:9px;color:#aaa;padding-top:2px;">
+              <span style="background:#2a5a2a;color:#fff;padding:1px 4px;border-radius:2px;">保存更改 (2 处)</span>
+              <span style="color:#cc0;">2 处未保存</span>
+            </div>
+          </div>
+          <div style="flex:1;background:#1e1e1e;padding:6px;display:flex;flex-direction:column;">
+            <div style="color:#e0e0e0;font-weight:bold;margin-bottom:4px;">实时修改</div>
+            <div style="color:#4a4;font-size:10px;margin-bottom:3px;">● 已连接 :9222 [断开] [✓ 插件]</div>
+            <div style="display:flex;gap:3px;flex-wrap:wrap;margin-bottom:3px;font-size:10px;">
+              <span style="background:#2a2a2a;padding:1px 3px;border-radius:2px;color:#aaa;">🔍 搜索</span>
+              <span style="background:#2a2a2a;padding:1px 3px;border-radius:2px;color:#aaa;">跳转</span>
+              <span style="color:#4a4;">☑ 自动刷新</span>
+              <span style="color:#4a4;">📥 刷新</span>
+            </div>
+            <div style="border-top:1px solid #444;margin:2px 0;"></div>
+            <div style="font-weight:bold;font-size:11px;color:#ccc;margin-bottom:3px;">实时监控 (5 字段)</div>
+            <div style="flex:1;overflow-y:auto;">
+              <div style="display:flex;flex-wrap:wrap;gap:3px;align-content:flex-start;font-size:10px;">
+                <span style="background:#1a1a1a;padding:1px 4px;border-radius:2px;color:#888;">🔓 开关 Sw001 <span style="color:#ff6;">ON</span></span>
+                <span style="background:#1a1a1a;padding:1px 4px;border-radius:2px;color:#888;">🔓 变量 Steps <span style="color:#ddd;">42</span></span>
+                <span style="background:#1a1a1a;padding:1px 4px;border-radius:2px;color:#888;">🔓 变量 PlayTime <span style="color:#ddd;">12:34</span></span>
+                <span style="background:#1a1a1a;padding:1px 4px;border-radius:2px;color:#888;">🔒 角色 HP <span style="color:#ddd;">500</span></span>
+                <span style="background:#1a1a1a;padding:1px 4px;border-radius:2px;color:#888;">🔓 物品 Potion <span style="color:#ddd;">5</span></span>
+                <span style="background:#1a1a1a;padding:1px 4px;border-radius:2px;color:#666;font-style:italic;">开关 Sw002 OFF</span>
+                <span style="background:#1a1a1a;padding:1px 4px;border-radius:2px;color:#666;font-style:italic;">变量 Gold 0</span>
+                <span style="background:#1a1a1a;padding:1px 4px;border-radius:2px;color:#666;font-style:italic;">角色 MP 200</span>
+                <span style="background:#1a1a1a;padding:1px 4px;border-radius:2px;color:#666;font-style:italic;">物品 Elixir 3</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div style="background:#1e1e1e;padding:3px 12px;border-top:1px solid #555;color:#888;font-size:9px;">共 342 个字段 | 已选游戏: MyGame</div>
+      </div>
+    </div>
+    <div class="pros-cons">
+      <div class="pros"><h4>改进</h4><ul>
+        <li>ui.columns(2) 严格保证 1:1 分割</li>
+        <li>if/else 替代 return，两者始终共存</li>
+        <li>字段表全量滚动，342 项无需翻页</li>
+        <li>实时监控流式换行填满可用空间</li>
+      </ul></div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>代码改动对应关系</h3>
+  <table style="width:100%;border-collapse:collapse;font-size:13px;">
+    <tr style="background:#2a2a2a;"><th style="padding:6px;text-align:left;border-bottom:2px solid #555;">文件</th><th style="padding:6px;text-align:left;">改动</th><th style="padding:6px;text-align:left;">行</th></tr>
+    <tr><td style="padding:4px 8px;border-bottom:1px solid #444;"><code>app.rs</code></td><td style="padding:4px 8px;border-bottom:1px solid #444;">ui.horizontal → ui.columns(2); return → if/else</td><td style="padding:4px 8px;border-bottom:1px solid #444;">391-451</td></tr>
+    <tr><td style="padding:4px 8px;border-bottom:1px solid #444;"><code>field_table.rs</code></td><td style="padding:4px 8px;border-bottom:1px solid #444;">删除 PAGE_SIZE / 分页 / page 参数</td><td style="padding:4px 8px;border-bottom:1px solid #444;">5,13,40-56,96-105</td></tr>
+    <tr><td style="padding:4px 8px;border-bottom:1px solid #444;"><code>save_panel.rs</code></td><td style="padding:4px 8px;border-bottom:1px solid #444;">移除 {page} 参数传递</td><td style="padding:4px 8px;border-bottom:1px solid #444;">69,76</td></tr>
+    <tr><td style="padding:4px 8px;border-bottom:1px solid #444;"><code>state.rs</code></td><td style="padding:4px 8px;border-bottom:1px solid #444;">删除 pub page: usize</td><td style="padding:4px 8px;border-bottom:1px solid #444;">54</td></tr>
+    <tr><td style="padding:4px 8px;border-bottom:1px solid #444;"><code>app.rs</code></td><td style="padding:4px 8px;border-bottom:1px solid #444;">删除 page: 0 初始化 / page = 0 重置</td><td style="padding:4px 8px;border-bottom:1px solid #444;">62,102</td></tr>
+    <tr><td style="padding:4px 8px;"><code>boundary_tests.rs</code></td><td style="padding:4px 8px;">删除 6 个分页测试</td><td style="padding:4px 8px;">~15 行</td></tr>
+  </table>
+</div>

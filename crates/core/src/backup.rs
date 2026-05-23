@@ -31,12 +31,25 @@ pub fn save_backup(original: &Path, keep: usize) -> Result<PathBuf, std::io::Err
 
     let timestamp = chrono::Local::now().format("%Y%m%d_%H%M%S").to_string();
     let stem = original.file_stem().unwrap_or_default().to_string_lossy();
-    let ext = original.extension().map(|e| e.to_string_lossy().to_string()).unwrap_or_default();
+    // Guard against empty stem matching all files
+    let stem_str = if stem.is_empty() {
+        original
+            .file_name()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .to_string()
+    } else {
+        stem.to_string()
+    };
+    let ext = original
+        .extension()
+        .map(|e| e.to_string_lossy().to_string())
+        .unwrap_or_default();
 
     let backup_name = if ext.is_empty() {
-        format!("{}.{}.bak", stem, timestamp)
+        format!("{}.{}.bak", stem_str, timestamp)
     } else {
-        format!("{}.{}.bak.{}", stem, timestamp, ext)
+        format!("{}.{}.bak.{}", stem_str, timestamp, ext)
     };
     let backup_path = original.with_file_name(&backup_name);
 
@@ -52,6 +65,15 @@ pub fn save_backup(original: &Path, keep: usize) -> Result<PathBuf, std::io::Err
 fn cleanup_old_backups(original: &Path, keep: usize) -> Result<(), std::io::Error> {
     let parent = original.parent().unwrap_or(Path::new("."));
     let stem = original.file_stem().unwrap_or_default().to_string_lossy();
+    let stem_str = if stem.is_empty() {
+        original
+            .file_name()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .to_string()
+    } else {
+        stem.to_string()
+    };
 
     let mut backups: Vec<PathBuf> = fs::read_dir(parent)?
         .filter_map(|e| e.ok())
@@ -59,7 +81,7 @@ fn cleanup_old_backups(original: &Path, keep: usize) -> Result<(), std::io::Erro
         .filter(|p| {
             p.file_name()
                 .and_then(|n| n.to_str())
-                .map(|n| n.starts_with(&*stem) && n.contains(".bak."))
+                .map(|n| n.starts_with(&*stem_str) && n.contains(".bak."))
                 .unwrap_or(false)
         })
         .collect();
@@ -88,7 +110,11 @@ mod tests {
 
         let backup = save_backup(&original, 0).unwrap();
         assert!(backup.exists());
-        assert!(backup.file_name().unwrap().to_string_lossy().contains(".bak."));
+        assert!(backup
+            .file_name()
+            .unwrap()
+            .to_string_lossy()
+            .contains(".bak."));
         assert_eq!(fs::read_to_string(&backup).unwrap(), "test data");
     }
 

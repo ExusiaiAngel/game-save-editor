@@ -5,11 +5,8 @@
 use std::fs;
 use std::path::Path;
 
+use game_tool_core::{backup, GameToolError, ISaveFormat, ModifiableField, SaveSummary};
 use serde_json::Value;
-use game_tool_core::{
-    ISaveFormat, ModifiableField, SaveSummary, GameToolError,
-    backup,
-};
 
 use crate::jsonex;
 
@@ -93,49 +90,102 @@ impl ISaveFormat for RpgMakerFormat {
     }
 
     fn get_summary(&self, data: &Value) -> SaveSummary {
-        let gold = data.get("party")
+        let gold = data
+            .get("party")
             .and_then(|p| p.get("_gold"))
             .and_then(|v| v.as_i64())
             .unwrap_or(0) as i32;
 
-        let party_size = data.get("party")
+        // Party size: try party._actors first, fallback to actors._data.@a (JSONEx)
+        let party_size = data
+            .get("party")
             .and_then(|p| p.get("_actors"))
             .and_then(|v| v.as_array())
             .map(|a| a.len() as i32)
-            .unwrap_or(0);
-
-        let item_count = data.get("party")
-            .and_then(|p| p.get("_items"))
-            .and_then(|v| v.as_object())
-            .map(|m| {
-                jsonex::filter_meta_keys(m)
-                    .values()
-                    .filter(|v| v.as_i64().unwrap_or(0) > 0)
-                    .count() as i32
+            .or_else(|| {
+                data.get("actors")
+                    .and_then(|a| a.get("_data"))
+                    .map(|inner| jsonex::resolve_array(inner).len() as i32)
             })
             .unwrap_or(0);
 
-        let save_count = data.get("system")
+        let item_count = data
+            .get("party")
+            .and_then(|p| p.get("_items"))
+            .and_then(|v| {
+                // Check for _data wrapper (JSONEx)
+                if let Some(inner) = v.get("_data").and_then(|d| d.as_object()) {
+                    Some(
+                        jsonex::filter_meta_keys(inner)
+                            .values()
+                            .filter(|v| v.as_i64().unwrap_or(0) > 0)
+                            .count() as i32,
+                    )
+                } else if let Some(obj) = v.as_object() {
+                    Some(
+                        jsonex::filter_meta_keys(obj)
+                            .values()
+                            .filter(|v| v.as_i64().unwrap_or(0) > 0)
+                            .count() as i32,
+                    )
+                } else {
+                    None
+                }
+            })
+            .unwrap_or(0);
+
+        let save_count = data
+            .get("system")
             .and_then(|s| s.get("_saveCount"))
             .and_then(|v| v.as_i64())
             .unwrap_or(0) as i32;
 
-        let play_time = data.get("system")
+        let play_time = data
+            .get("system")
             .and_then(|s| s.get("_playtime"))
             .and_then(|v| v.as_i64())
+            .or_else(|| {
+                data.get("system")
+                    .and_then(|s| s.get("_framesOnSave"))
+                    .and_then(|v| v.as_i64())
+                    .map(|frames| frames / 60)
+            })
             .unwrap_or(0) as i32;
 
-        let members = data.get("party")
+        let members = data
+            .get("party")
             .and_then(|p| p.get("_actors"))
             .and_then(|v| v.as_array())
             .map(|actors| {
-                actors.iter()
-                    .map(|a| {
+                actors
+                    .iter()
+                    .filter_map(|a| {
                         let id = a.get("_actorId").and_then(|v| v.as_i64()).unwrap_or(0);
+                        if id == 0 {
+                            return None;
+                        }
                         let name = a.get("_name").and_then(|v| v.as_str()).unwrap_or("???");
-                        format!("{}:{}", id, name)
+                        Some(format!("{}:{}", id, name))
                     })
                     .collect()
+            })
+            .or_else(|| {
+                // JSONEx: read from actors._data.@a
+                data.get("actors")
+                    .and_then(|a| a.get("_data"))
+                    .map(|inner| {
+                        jsonex::resolve_array(inner)
+                            .iter()
+                            .filter_map(|a| {
+                                let id = a.get("_actorId").and_then(|v| v.as_i64()).unwrap_or(0);
+                                if id == 0 {
+                                    return None;
+                                }
+                                let name = a.get("_name").and_then(|v| v.as_str()).unwrap_or("???");
+                                Some(format!("{}:{}", id, name))
+                            })
+                            .collect()
+                    })
             })
             .unwrap_or_default();
 
@@ -151,8 +201,7 @@ impl ISaveFormat for RpgMakerFormat {
     }
 
     fn scan_fields(&self, data: &Value, game_dir: &str) -> Vec<ModifiableField> {
-        crate::scanner::scan_all_modifiable(game_dir, Some(data), None)
-            .fields
+        crate::scanner::scan_all_modifiable(game_dir, Some(data), None).fields
     }
 
     fn apply_field(&self, data: &mut Value, field: &ModifiableField) -> Result<(), GameToolError> {
@@ -194,11 +243,11 @@ impl ISaveFormat for RpgMakerFormat {
             "actor" => {
                 let fid = &field.field_id;
                 if fid.ends_with("_hp") {
-                    set_actor_stat(data, field.item_id, "_hp", &field.save_value);
+                    set_actor_stat(data, field.item_id, "_hp", &field.save_value)?;
                 } else if fid.ends_with("_mp") {
-                    set_actor_stat(data, field.item_id, "_mp", &field.save_value);
+                    set_actor_stat(data, field.item_id, "_mp", &field.save_value)?;
                 } else if fid.ends_with("_level") {
-                    set_actor_stat(data, field.item_id, "_level", &field.save_value);
+                    set_actor_stat(data, field.item_id, "_level", &field.save_value)?;
                 }
             }
             _ => {}
@@ -207,25 +256,62 @@ impl ISaveFormat for RpgMakerFormat {
     }
 }
 
-fn set_actor_stat(data: &mut Value, actor_id: i32, stat: &str, value: &Value) {
-    if let Some(actors) = data.pointer_mut("/party/_actors") {
-        if let Some(arr) = actors.as_array_mut() {
-            for actor in arr {
-                if let Some(id) = actor.get("_actorId").and_then(|v| v.as_i64()) {
-                    if id as i32 == actor_id {
+fn set_actor_stat(
+    data: &mut Value,
+    actor_id: i32,
+    stat: &str,
+    value: &Value,
+) -> Result<(), GameToolError> {
+    let val = if value.is_boolean() {
+        if value.as_bool().unwrap_or(false) {
+            Value::Number(1.into())
+        } else {
+            Value::Number(0.into())
+        }
+    } else {
+        value.clone()
+    };
+
+    // Try JSONEx: actors._data.@a
+    let updated = data
+        .pointer_mut("/actors/_data")
+        .and_then(|inner| {
+            if let Some(a_arr) = inner.get_mut("@a").and_then(|a| a.as_array_mut()) {
+                for actor in a_arr {
+                    if actor.get("_actorId").and_then(|v| v.as_i64()) == Some(actor_id as i64) {
                         if let Some(obj) = actor.as_object_mut() {
-                            let val = if value.is_boolean() {
-                                if value.as_bool().unwrap_or(false) { Value::Number(1.into()) } else { Value::Number(0.into()) }
-                            } else {
-                                value.clone()
-                            };
-                            obj.insert(stat.to_string(), val);
+                            obj.insert(stat.to_string(), val.clone());
+                            return Some(true);
                         }
                     }
                 }
             }
-        }
+            None
+        })
+        .or_else(|| {
+            // Fallback: party._actors (standard format)
+            data.pointer_mut("/party/_actors").and_then(|actors| {
+                if let Some(arr) = actors.as_array_mut() {
+                    for actor in arr {
+                        if actor.get("_actorId").and_then(|v| v.as_i64()) == Some(actor_id as i64) {
+                            if let Some(obj) = actor.as_object_mut() {
+                                obj.insert(stat.to_string(), val);
+                                return Some(true);
+                            }
+                        }
+                    }
+                }
+                None
+            })
+        });
+
+    if updated.is_none() {
+        return Err(GameToolError::ArchiveSaveError(format!(
+            "角色 #{} 未在存档中找到",
+            actor_id
+        )));
     }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -367,6 +453,9 @@ mod tests {
             .filter_map(|e| e.ok())
             .filter(|e| e.file_name().to_string_lossy().contains(".bak."))
             .collect();
-        assert!(!backups.is_empty(), "backup should be created on second save");
+        assert!(
+            !backups.is_empty(),
+            "backup should be created on second save"
+        );
     }
 }

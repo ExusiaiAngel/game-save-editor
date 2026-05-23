@@ -1,0 +1,78 @@
+<h2>当前 UI 布局 — GameSaveEditor v1</h2>
+<p class="subtitle">基于 egui immediate-mode GUI 的原生桌面应用 | Rust + egui 0.31</p>
+
+<div class="mockup">
+<div class="mockup-header">整体结构：顶部栏 + 双面板 + 状态栏</div>
+<div class="mockup-body" style="font-family: monospace; font-size: 13px; line-height: 1.6;">
+
+<div style="border:1px solid #ccc; padding:8px; margin-bottom:2px; background:#f0f0f0">
+  <b>TOP BAR:</b> 游戏: D:\Games\MyGame &nbsp; 引擎: RPG Maker MV &nbsp; 标题: 冒险传说 &nbsp; [切换游戏...]
+</div>
+
+<div style="display:flex; gap:0;">
+
+<div style="flex:1; border:1px solid #ccc; padding:8px; border-right:0;">
+  <b style="color:#2563eb;">📂 存档编辑</b><br>
+  ─────────────────────<br>
+  存档文件: [file1.rpgsave ▾] [刷新]<br>
+  ─────────────────────<br>
+  <b>┌ 存档摘要 ────────────┐</b><br>
+  │ 金币: <span style="color:#d97706;">9999 G</span> 队伍: 4人 物品: 23种 存档: 12次<br>
+  │ 时长: 12:34:56<br>
+  │ 队员: Eric, Natalie, Alex, Luna<br>
+  │ <b>└──────────────────────┘</b><br>
+  ─────────────────────<br>
+  🔍 [搜索字段...] &nbsp; ✕ &nbsp; 跳转 ID: [___]<br>
+  分类: <span style="background:#e0e0e0;padding:2px 6px;margin:2px;">全部</span> <span style="background:#e0e0e0;padding:2px 6px;margin:2px;">金币</span> <span style="background:#e0e0e0;padding:2px 6px;margin:2px;">开关</span> <span style="background:#e0e0e0;padding:2px 6px;margin:2px;">变量</span> <span style="background:#e0e0e0;padding:2px 6px;margin:2px;">角色</span><br>
+  ─────────────────────<br>
+  类别 &nbsp;&nbsp; 名称 &nbsp;&nbsp; 值<br>
+  ─────────────────────<br>
+  金币 &nbsp;&nbsp; 金币 &nbsp;&nbsp; <span style="color:#d97706;">[9999]</span><br>
+  开关 &nbsp;&nbsp; 大门 &nbsp;&nbsp; [✓]<br>
+  开关 &nbsp;&nbsp; 灯光 &nbsp;&nbsp; [ ]<br>
+  变量 &nbsp;&nbsp; 步数 &nbsp;&nbsp; <span style="color:#d97706;">[5000]</span> <span style="color:#d97706;">*</span><br>
+  角色 &nbsp;&nbsp; Eric HP &nbsp;&nbsp; <span style="color:#d97706;">[850]</span><br>
+  角色 &nbsp;&nbsp; Natalie MP &nbsp;&nbsp; <span style="color:#d97706;">[320]</span><br>
+  ─────────────────────<br>
+  <b style="color:#dc2626;">[保存更改 (3处)]</b> &nbsp; 3处未保存
+</div>
+
+<div style="flex:1; border:1px solid #ccc; padding:8px;">
+  <b style="color:#059669;">🔌 实时修改</b><br>
+  ─────────────────────<br>
+  <span style="color:#16a34a;">● 已连接</span> :19999 [断开] [✓插件已注入]<br>
+  ─────────────────────<br>
+  🔍 [搜索...] ✕ | 跳转: [... <span style="color:#2563eb;">▶ 自动刷新</span> [📥 刷新] 🔒3<br>
+  ─────────────────────<br>
+  <b>**金币 (1)**</b><br>
+  类别 &nbsp;&nbsp; 名称 &nbsp;&nbsp; 值<br>
+  ─────────────────────<br>
+  金币 &nbsp;&nbsp; 金币 &nbsp;&nbsp; [9999]<br>
+  <b>**开关 (500)**</b><br>
+  🔓 开关 &nbsp;&nbsp; 大门 &nbsp;&nbsp; <span style="color:#d97706;">[✓]</span><br>
+  🔒 开关 &nbsp;&nbsp; 灯光 &nbsp;&nbsp; [ ]<br>
+  <b>**变量 (300)**</b><br>
+  变量 &nbsp;&nbsp; 步数 &nbsp;&nbsp; <span style="color:#d97706;">[5000]</span><br>
+  ...更多字段...<br>
+</div>
+
+</div>
+
+<div style="border:1px solid #ccc; padding:6px; margin-top:2px; background:#f0f0f0; font-size:12px;">
+  STATUS BAR: ✓ 存档已保存 &nbsp;&nbsp;|&nbsp;&nbsp; 共 1234 个字段 &nbsp;&nbsp;|&nbsp;&nbsp; 已选游戏: D:\Games\MyGame
+</div>
+
+</div>
+</div>
+
+<h3>当前 UI 的关键特点</h3>
+<div class="section">
+  <ul>
+    <li><b>框架:</b> egui 0.31 immediate-mode GUI — 无 CSS、无 HTML、无组件库</li>
+    <li><b>主题:</b> 仅使用 egui 默认浅色主题，无暗色模式</li>
+    <li><b>色彩:</b> 内联 Color32 硬编码（红色=错误, 绿色=成功, 黄色=脏数据）</li>
+    <li><b>图标:</b> 仅 Unicode 表情符号（🔍 ✕ 🔒 🔓 ✓ ✗ ● ◌ ⏸ ▶ 📥 ）</li>
+    <li><b>布局:</b> 固定二分栏（存档编辑 + 实时修改），无自适应</li>
+    <li><b>交互:</b> 无键盘快捷键、无拖拽、无 tooltip、无加载动画</li>
+  </ul>
+</div>

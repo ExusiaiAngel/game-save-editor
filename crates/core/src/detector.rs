@@ -157,10 +157,7 @@ mod tests {
         fs::create_dir_all(&save_dir).unwrap();
         let save_path = save_dir.join("file1.rpgsave");
 
-        let result = detect_game(
-            Some(&save_path.to_string_lossy()),
-            None,
-        );
+        let result = detect_game(Some(&save_path.to_string_lossy()), None);
         assert!(result.is_some());
     }
 }

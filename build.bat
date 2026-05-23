@@ -6,8 +6,8 @@ echo Cleaning old output...
 if exist "dist\" rd /s /q "dist"
 mkdir dist
 
-echo Building release...
-cargo build --release
+echo Building release (GUI)...
+cargo build --release -p game-tool-gui
 if %errorlevel% neq 0 (
     echo BUILD FAILED
     pause

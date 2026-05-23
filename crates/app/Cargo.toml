@@ -5,7 +5,7 @@ edition = "2021"
 description = "Game Save Editor — 多格式游戏存档编辑器"
 
 [[bin]]
-name = "GameSaveEditor"
+name = "game-tool-cli"
 path = "src/main.rs"
 
 [dependencies]

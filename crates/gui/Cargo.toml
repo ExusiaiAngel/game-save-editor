@@ -1,0 +1,25 @@
+[package]
+name = "game-tool-gui"
+version = "0.1.0"
+edition = "2021"
+description = "Game Save Editor — GUI"
+
+[[bin]]
+name = "GameSaveEditor"
+path = "src/main.rs"
+
+[dependencies]
+eframe.workspace = true
+egui.workspace = true
+rfd.workspace = true
+serde_json.workspace = true
+serde.workspace = true
+
+game-tool-core = { path = "../core" }
+game-tool-rpgmaker = { path = "../engines/rpgmaker" }
+game-tool-renpy = { path = "../engines/renpy" }
+game-tool-unreal = { path = "../engines/unreal" }
+game-tool-generic = { path = "../engines/generic" }
+
+[dev-dependencies]
+tempfile.workspace = true

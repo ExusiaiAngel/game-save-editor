@@ -374,7 +374,10 @@ mod tests {
         assert_eq!(decoded.gold, 12345);
         assert_eq!(decoded.party_size, 4);
         assert_eq!(decoded.members.len(), 2);
-        assert_eq!(decoded.extra.get("actor_count").and_then(|v| v.as_i64()), Some(4));
+        assert_eq!(
+            decoded.extra.get("actor_count").and_then(|v| v.as_i64()),
+            Some(4)
+        );
     }
 
     #[test]
@@ -408,9 +411,14 @@ mod tests {
         assert_eq!(decoded.engine, "rpg_mv");
         assert_eq!(decoded.map_name, "城镇");
         assert_eq!(decoded.save_count, 7);
-        assert_eq!(decoded.extensions.get("gold").and_then(|v| v.as_i64()), Some(9999));
         assert_eq!(
-            decoded.extensions.get("switches")
+            decoded.extensions.get("gold").and_then(|v| v.as_i64()),
+            Some(9999)
+        );
+        assert_eq!(
+            decoded
+                .extensions
+                .get("switches")
                 .and_then(|v| v.get("1"))
                 .and_then(|v| v.as_bool()),
             Some(true)
@@ -507,9 +515,7 @@ mod tests {
             exe_path: r"D:\Games\MyGame\Game.exe".into(),
             exe_name: "Game.exe".into(),
             package_json_path: r"D:\Games\MyGame\package.json".into(),
-            save_files: vec![
-                r"D:\Games\MyGame\www\Save\file1.rpgsave".into(),
-            ],
+            save_files: vec![r"D:\Games\MyGame\www\Save\file1.rpgsave".into()],
             save_format: "rpgsave".into(),
             detected_from: "dir".into(),
         };
