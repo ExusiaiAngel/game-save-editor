@@ -7,11 +7,21 @@
 //   4. 环境变量 GAME_TOOL_* (最高优先级)
 
 use serde::{Deserialize, Serialize};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
-const CONFIG_TOML: &str = "config.toml";
+const CONFIG_FILENAME: &str = "config.toml";
 const CONFIG_JSON: &str = "config.json";
 const ENV_PREFIX: &str = "GAME_TOOL_";
+
+fn config_dir() -> PathBuf {
+    dirs_next::config_dir()
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join("GameSaveEditor")
+}
+
+fn config_toml_path() -> PathBuf {
+    config_dir().join(CONFIG_FILENAME)
+}
 
 /// 全局应用配置
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -74,7 +84,8 @@ pub fn load_config() -> Result<AppConfig, anyhow::Error> {
     }
 
     // Layer 3: config.toml (主配置文件)
-    if let Ok(content) = std::fs::read_to_string(CONFIG_TOML) {
+    let toml_path = config_toml_path();
+    if let Ok(content) = std::fs::read_to_string(&toml_path) {
         if let Ok(toml_config) = toml::from_str::<AppConfig>(&content) {
             config.merge_from(toml_config);
         }
@@ -104,7 +115,9 @@ pub fn load_config_from(path: impl AsRef<Path>) -> Result<AppConfig, anyhow::Err
 /// 保存配置到 config.toml
 pub fn save_config(config: &AppConfig) -> Result<(), anyhow::Error> {
     let toml_str = toml::to_string_pretty(config)?;
-    std::fs::write(CONFIG_TOML, toml_str)?;
+    let dir = config_dir();
+    std::fs::create_dir_all(&dir)?;
+    std::fs::write(config_toml_path(), toml_str)?;
     Ok(())
 }
 
@@ -337,7 +350,7 @@ plugin_auto_connect = false
         assert_eq!(config.tcp_port, 100);
 
         // 3. TOML 文件覆盖 JSON
-        let toml_path = CONFIG_TOML;
+        let toml_path = "test_env_override.toml";
         std::fs::write(toml_path, "tcp_port = 200\nlanguage = \"en\"").unwrap();
         if let Ok(content) = std::fs::read_to_string(toml_path) {
             if let Ok(toml_cfg) = toml::from_str::<AppConfig>(&content) {

@@ -223,6 +223,8 @@ const PLUGINS_JS: &str = "js/plugins.js";
 
 /// GameBridgeServer.js 插件源码（TCP 服务器，暴露 RPG Maker 游戏对象）
 pub const PLUGIN_SOURCE: &str = r#"
+(function() {
+try {
 var net = require('net');
 var server = net.createServer(function(socket) {
     socket.setEncoding('utf8');
@@ -292,6 +294,8 @@ function handleCommand(socket, cmd) {
     socket.write('ERR\n');
 }
 server.listen(__PORT__, '127.0.0.1');
+} catch(e) {}
+})();
 "#;
 
 /// 检查插件是否已安装
@@ -325,23 +329,53 @@ pub fn inject_plugin(game_dir: &str, port: u16) -> Result<(), String> {
     if plugins_js.is_file() {
         let content = fs::read_to_string(&plugins_js).map_err(|e| e.to_string())?;
         if !content.contains(PLUGIN_FILENAME) {
-            let mut new_content = String::new();
-            for line in content.lines() {
-                new_content.push_str(line);
-                new_content.push('\n');
-                if line.trim().starts_with("//") && line.contains("end of") {
-                    new_content.push_str(r#"{"name":"GameBridgeServer","status":true,"description":"TCP Bridge","parameters":{}},"#);
-                    new_content.push('\n');
+            // Backup before modifying
+            let bak = plugins_js.with_extension("js.bak");
+            if !bak.exists() {
+                fs::copy(&plugins_js, &bak).map_err(|e| e.to_string())?;
+            }
+
+            let result = modify_plugins_js(&plugins_js, &content);
+            if let Err(e) = result {
+                // Auto-restore on failure
+                if bak.exists() {
+                    let _ = fs::copy(&bak, &plugins_js);
                 }
+                return Err(format!("修改 plugins.js 失败: {}，已自动还原备份", e));
             }
-            if !new_content.contains(PLUGIN_FILENAME) {
-                new_content = content.replace("];", r#"{"name":"GameBridgeServer","status":true,"description":"TCP Bridge","parameters":{}},\n];"#);
-            }
-            fs::write(&plugins_js, &new_content).map_err(|e| e.to_string())?;
         }
     }
 
     Ok(())
+}
+
+fn modify_plugins_js(path: &Path, content: &str) -> Result<(), String> {
+    let left = content.find('[')
+        .ok_or_else(|| "plugins.js 格式不支持：找不到数组开始 '['".to_string())?;
+    let right = content.rfind(']')
+        .ok_or_else(|| "plugins.js 格式不支持：找不到数组结束 ']'".to_string())?;
+
+    let prefix = &content[..=left];
+    let suffix = &content[right..];
+    let array_body = &content[left + 1..right];
+
+    let mut plugins: Vec<serde_json::Value> =
+        serde_json::from_str(&format!("[{}]", array_body))
+        .map_err(|e| format!("plugins.js JSON 解析失败: {}", e))?;
+
+    let entry = serde_json::json!({
+        "name": "GameBridgeServer",
+        "status": true,
+        "description": "TCP Bridge",
+        "parameters": {}
+    });
+    plugins.push(entry);
+
+    let entries: Vec<String> = plugins.iter()
+        .map(|v| serde_json::to_string(v).unwrap_or_default())
+        .collect();
+    let new_content = format!("{}\n{}\n{}", prefix, entries.join(",\n"), suffix);
+    fs::write(path, &new_content).map_err(|e| e.to_string())
 }
 
 /// 移除插件
@@ -349,6 +383,12 @@ pub fn remove_plugin(game_dir: &str) -> Result<(), String> {
     let plugin_path = find_plugin_file(game_dir);
     if plugin_path.is_file() {
         fs::remove_file(&plugin_path).map_err(|e| e.to_string())?;
+    }
+    // Restore plugins.js from backup
+    let plugins_js = Path::new(game_dir).join("www/js/plugins.js");
+    let plugins_js_bak = plugins_js.with_extension("js.bak");
+    if plugins_js_bak.exists() {
+        fs::copy(&plugins_js_bak, &plugins_js).map_err(|e| e.to_string())?;
     }
     Ok(())
 }

@@ -61,6 +61,18 @@ pub fn render(ui: &mut Ui, state: &AppState) {
                     );
                 }
 
+                let diff_count = state.rt_panel.fields.iter().filter(|lf| {
+                    state.save_panel.fields.iter().any(|sf| {
+                        sf.field_id == lf.field_id && sf.save_value != lf.live_value
+                    })
+                }).count();
+                if diff_count > 0 {
+                    ui.colored_label(
+                        theme::colors::WARNING,
+                        format!("\u{5dee}\u{5f02} {}\u{9879}", diff_count),
+                    );
+                }
+
                 ui.separator();
                 let count = state.rt_panel.fields.len();
                 ui.label(format!("\u{5171} {} \u{4e2a}\u{5b57}\u{6bb5}", count));

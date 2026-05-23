@@ -146,38 +146,54 @@ fn test_locked_fields_toggle() {
 
 #[test]
 fn test_error_message_clears_on_timer_expiry() {
-    let mut error_remaining: i32 = 300;
+    let mut error_expires_at: Option<std::time::Instant> =
+        Some(std::time::Instant::now() + std::time::Duration::from_secs(5));
     let mut error_message = String::from("test error");
 
-    for _ in 0..300 {
-        if error_remaining > 0 {
-            error_remaining -= 1;
-            if error_remaining == 0 {
-                error_message.clear();
-            }
+    // Not expired yet
+    if let Some(at) = error_expires_at {
+        if at <= std::time::Instant::now() {
+            error_message.clear();
+            error_expires_at = None;
         }
     }
+    assert!(!error_message.is_empty());
 
-    assert_eq!(error_remaining, 0);
+    // Expired (set to past)
+    error_expires_at = Some(std::time::Instant::now() - std::time::Duration::from_secs(1));
+    if let Some(at) = error_expires_at {
+        assert!(at <= std::time::Instant::now());
+        error_message.clear();
+        error_expires_at = None;
+    }
     assert!(error_message.is_empty());
+    assert!(error_expires_at.is_none());
 }
 
 #[test]
 fn test_write_feedback_clears_on_timer_expiry() {
-    let mut feedback_remaining: i32 = 120;
-    let mut write_feedback = String::from("✓ 已写入");
+    let mut feedback_expires_at: Option<std::time::Instant> =
+        Some(std::time::Instant::now() + std::time::Duration::from_secs(3));
+    let mut write_feedback = String::from("已写入");
 
-    for _ in 0..120 {
-        if feedback_remaining > 0 {
-            feedback_remaining -= 1;
-            if feedback_remaining == 0 {
-                write_feedback.clear();
-            }
+    // Not expired yet
+    if let Some(at) = feedback_expires_at {
+        if at <= std::time::Instant::now() {
+            write_feedback.clear();
+            feedback_expires_at = None;
         }
     }
+    assert!(!write_feedback.is_empty());
 
-    assert_eq!(feedback_remaining, 0);
+    // Expired (set to past)
+    feedback_expires_at = Some(std::time::Instant::now() - std::time::Duration::from_secs(1));
+    if let Some(at) = feedback_expires_at {
+        assert!(at <= std::time::Instant::now());
+        write_feedback.clear();
+        feedback_expires_at = None;
+    }
     assert!(write_feedback.is_empty());
+    assert!(feedback_expires_at.is_none());
 }
 
 // ─── T12: connection thread sends Disconnected on channel close ────
@@ -364,7 +380,7 @@ fn test_save_action_variants() {
 #[test]
 fn test_rt_action_variants() {
     let write = realtime_editor::RtAction::WriteField("gold".into(), Value::Number(50.into()));
-    let read = realtime_editor::RtAction::ReadAll;
+    let copy = realtime_editor::RtAction::CopyToSave("gold".into());
     let lock = realtime_editor::RtAction::ToggleLock("switch_1".into());
 
     match write {
@@ -374,7 +390,10 @@ fn test_rt_action_variants() {
         }
         _ => panic!(),
     }
-    let _ = read;
+    match copy {
+        realtime_editor::RtAction::CopyToSave(id) => assert_eq!(id, "gold"),
+        _ => panic!(),
+    }
     match lock {
         realtime_editor::RtAction::ToggleLock(id) => assert_eq!(id, "switch_1"),
         _ => panic!(),

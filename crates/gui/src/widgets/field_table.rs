@@ -1,4 +1,5 @@
-use egui::{Color32, ScrollArea, Ui};
+use crate::theme::colors;
+use egui::{ScrollArea, Ui};
 use game_tool_core::ModifiableField;
 use serde_json::Value;
 use std::collections::HashMap;
@@ -90,8 +91,8 @@ pub fn render(
                         let dirty = fields[idx].dirty;
 
                         if is_jump_target {
-                            ui.colored_label(Color32::from_rgb(100, 200, 255), &cat);
-                            ui.colored_label(Color32::from_rgb(100, 200, 255), &dname);
+                            ui.colored_label(colors::ACCENT, &cat);
+                            ui.colored_label(colors::ACCENT, &dname);
                         } else {
                             ui.label(&cat);
                             ui.label(&dname);
@@ -117,20 +118,20 @@ pub fn render(
                                 if !live_display.is_empty() && live_display != "-" {
                                     if is_diff {
                                         ui.colored_label(
-                                            Color32::from_rgb(210, 153, 34),
+                                            colors::WARNING,
                                             &live_display,
                                         );
                                     } else {
                                         ui.colored_label(
-                                            Color32::from_rgb(139, 148, 158),
+                                            colors::TEXT_SECONDARY,
                                             &live_display,
                                         );
                                     }
                                 } else {
-                                    ui.colored_label(Color32::from_rgb(72, 79, 88), "-");
+                                    ui.colored_label(colors::TEXT_DISABLED, "-");
                                 }
                             } else {
-                                ui.colored_label(Color32::from_rgb(72, 79, 88), "-");
+                                ui.colored_label(colors::TEXT_DISABLED, "-");
                             }
                         }
 
@@ -150,14 +151,18 @@ pub fn render(
                         if status_str.is_empty() {
                             ui.label("");
                         } else {
-                            ui.colored_label(Color32::from_rgb(210, 153, 34), &status_str);
+                            ui.colored_label(colors::WARNING, &status_str);
                         }
 
                         ui.end_row();
                     }
                 });
 
-            ui.label(format!("\u{5171} {} \u{9879}", total));
+            if total == 0 && (!search_query.is_empty() || selected_category.is_some()) {
+                ui.colored_label(colors::TEXT_SECONDARY, "\u{672a}\u{627e}\u{5230}\u{5339}\u{914d}\u{5b57}\u{6bb5}");
+            } else {
+                ui.label(format!("\u{5171} {} \u{9879}", total));
+            }
         });
 
     dirty_count
