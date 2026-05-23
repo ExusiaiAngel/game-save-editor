@@ -1,6 +1,7 @@
 use egui::{Color32, ScrollArea, Ui};
 use game_tool_core::ModifiableField;
 use serde_json::Value;
+use std::collections::HashMap;
 
 pub fn render(
     ui: &mut Ui,
@@ -9,15 +10,22 @@ pub fn render(
     search_query: &str,
     selected_category: &Option<String>,
     jump_id: &mut String,
+    live_fields: Option<&[ModifiableField]>,
 ) -> usize {
     // Count dirty fields across ALL fields (not just visible page)
     let dirty_count = fields.iter().filter(|f| f.dirty).count();
+
+    let live_map: HashMap<&str, &ModifiableField> = live_fields
+        .map(|lf| lf.iter().map(|f| (f.field_id.as_str(), f)).collect())
+        .unwrap_or_default();
+    let show_live_col = !live_map.is_empty();
 
     let all_indices: Vec<usize> = fields
         .iter()
         .enumerate()
         .filter(|(_, f)| {
-            let (cat_filter, range) = crate::widgets::category_tree::parse_range(selected_category);
+            let (cat_filter, range) =
+                crate::widgets::category_tree::parse_range(selected_category);
             if let Some(cat) = cat_filter {
                 if f.category != cat {
                     return false;
@@ -59,18 +67,25 @@ pub fn render(
                 .striped(true)
                 .min_col_width(40.0)
                 .show(ui, |ui| {
-                    ui.strong("分类");
-                    ui.strong("名称");
-                    ui.strong("值");
-                    ui.strong("实时");
-                    ui.label("");
+                    ui.strong("\u{5206}\u{7c7b}");
+                    ui.strong("\u{540d}\u{79f0}");
+                    ui.strong("\u{4fdd}\u{5b58}\u{503c}");
+                    if show_live_col {
+                        ui.strong("\u{5b9e}\u{65f6}\u{503c}");
+                    }
+                    ui.strong("\u{72b6}\u{6001}");
                     ui.end_row();
 
                     for &idx in &all_indices {
                         let cat = fields[idx].category.clone();
                         let dname = fields[idx].display_name.clone();
-                        let is_jump_target = jump_target.as_deref() == Some(&fields[idx].field_id);
-                        let live_val = fields[idx].live_value.clone();
+                        let is_jump_target =
+                            jump_target.as_deref() == Some(&fields[idx].field_id);
+
+                        if is_jump_target {
+                            ui.scroll_to_cursor(Some(egui::Align::Center));
+                        }
+
                         let save_val = fields[idx].save_value.clone();
                         let dirty = fields[idx].dirty;
 
@@ -94,35 +109,61 @@ pub fn render(
                             }
                         }
 
-                        let live_display = value_display(&live_val);
-                        let is_diff = live_val != save_val;
-                        if !live_display.is_empty() && live_display != "-" {
-                            if is_diff {
-                                ui.colored_label(Color32::from_rgb(255, 200, 0), &live_display);
+                        if show_live_col {
+                            let live_from_conn = live_map.get(fields[idx].field_id.as_str());
+                            if let Some(lf) = live_from_conn {
+                                let live_display = value_display(&lf.live_value);
+                                let is_diff = lf.live_value != save_val;
+                                if !live_display.is_empty() && live_display != "-" {
+                                    if is_diff {
+                                        ui.colored_label(
+                                            Color32::from_rgb(210, 153, 34),
+                                            &live_display,
+                                        );
+                                    } else {
+                                        ui.colored_label(
+                                            Color32::from_rgb(139, 148, 158),
+                                            &live_display,
+                                        );
+                                    }
+                                } else {
+                                    ui.colored_label(Color32::from_rgb(72, 79, 88), "-");
+                                }
                             } else {
-                                ui.colored_label(Color32::from_rgb(139, 148, 158), &live_display);
+                                ui.colored_label(Color32::from_rgb(72, 79, 88), "-");
                             }
-                        } else {
-                            ui.colored_label(Color32::from_rgb(72, 79, 88), "-");
                         }
 
+                        let mut status_parts: Vec<String> = Vec::new();
                         if dirty {
-                            ui.colored_label(Color32::from_rgb(255, 200, 0), "*");
-                        } else {
+                            status_parts.push("*".into());
+                        }
+                        if show_live_col {
+                            if let Some(lf) = live_map.get(fields[idx].field_id.as_str()) {
+                                if lf.live_value != save_val {
+                                    status_parts.push("\u{2190}".into());
+                                }
+                            }
+                        }
+
+                        let status_str = status_parts.join("");
+                        if status_str.is_empty() {
                             ui.label("");
+                        } else {
+                            ui.colored_label(Color32::from_rgb(210, 153, 34), &status_str);
                         }
 
                         ui.end_row();
                     }
                 });
 
-            ui.label(format!("共 {} 项", total));
+            ui.label(format!("\u{5171} {} \u{9879}", total));
         });
 
     dirty_count
 }
 
-fn value_display(v: &Value) -> String {
+pub fn value_display(v: &Value) -> String {
     match v {
         Value::Null => "-".into(),
         Value::Bool(b) => if *b { "ON" } else { "OFF" }.into(),
@@ -211,13 +252,16 @@ mod tests {
     #[test]
     fn test_value_display_number() {
         assert_eq!(value_display(&Value::Number(42.into())), "42");
-        assert_eq!(value_display(&Value::Number(9999999.into())), "9999999");
+        assert_eq!(
+            value_display(&Value::Number(9999999.into())),
+            "9999999"
+        );
     }
 
     #[test]
     fn test_value_display_string() {
         assert_eq!(value_display(&Value::String("hello".into())), "hello");
-        assert_eq!(value_display(&Value::String("测试".into())), "测试");
+        assert_eq!(value_display(&Value::String("\u{6d4b}\u{8bd5}".into())), "\u{6d4b}\u{8bd5}");
     }
 
     #[test]
@@ -248,5 +292,34 @@ mod tests {
             FieldSource::Save => false,
             FieldSource::Live => true,
         };
+    }
+
+    #[test]
+    fn test_live_map_empty_when_none() {
+        let map: HashMap<&str, &ModifiableField> = None
+            .map(|lf: &[ModifiableField]| lf.iter().map(|f| (f.field_id.as_str(), f)).collect())
+            .unwrap_or_default();
+        assert!(map.is_empty());
+    }
+
+    #[test]
+    fn test_live_map_populated() {
+        let fields = vec![
+            ModifiableField {
+                field_id: "gold".into(),
+                live_value: Value::Number(5000.into()),
+                ..Default::default()
+            },
+            ModifiableField {
+                field_id: "switch_1".into(),
+                live_value: Value::Bool(true),
+                ..Default::default()
+            },
+        ];
+        let map: HashMap<&str, &ModifiableField> = Some(fields.as_slice())
+            .map(|lf| lf.iter().map(|f| (f.field_id.as_str(), f)).collect())
+            .unwrap_or_default();
+        assert_eq!(map.len(), 2);
+        assert_eq!(map.get("gold").unwrap().live_value, Value::Number(5000.into()));
     }
 }

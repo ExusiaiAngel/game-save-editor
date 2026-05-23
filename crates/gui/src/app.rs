@@ -10,8 +10,8 @@ use crate::panels::{
     backup, realtime_editor, save_editor, settings, startup, status_bar, tab_bar, toolbox, top_bar,
 };
 use crate::state::{
-    AppState, BridgeJob, BridgeResult, ConfirmAction, ConnectionStatus, RtPanelState, SavePanelState,
-    TabMode,
+    AppState, BridgeJob, BridgeResult, ConfirmAction, ConfirmDialog, ConnectionStatus, RtPanelState,
+    SavePanelState, TabMode, ToolboxState,
 };
 
 impl AppState {
@@ -77,8 +77,9 @@ impl AppState {
             game_config,
             active_tab: TabMode::SaveEditor,
             dark_mode,
-            recent_games: Vec::new(),
+            recent_games: config.recent_games.clone(),
             backup_paths: Vec::new(),
+            backup_selection: std::collections::HashSet::new(),
             save_panel: SavePanelState {
                 format,
                 save_files,
@@ -106,10 +107,16 @@ impl AppState {
                 search_query: String::new(),
                 jump_id: String::new(),
                 auto_refresh: true,
-                refresh_timer: 0,
                 locked_fields: std::collections::HashSet::new(),
                 refresh_interval_secs: 3,
                 last_refresh: None,
+            },
+            toolbox: ToolboxState {
+                lz_input: String::new(),
+                lz_output: String::new(),
+                lz_error: String::new(),
+                b64_input: String::new(),
+                b64_output: String::new(),
             },
             status_message: String::new(),
             show_unsaved_dialog: false,
@@ -237,6 +244,27 @@ impl AppState {
             self.save_panel.selected_category = None;
             self.save_panel.search_query.clear();
             self.rt_panel.plugin_installed = false;
+
+            if let Some(ref conn) = self.rt_panel.conn {
+                let _ = conn.cmd_tx.send(BridgeJob::Disconnect);
+            }
+            self.rt_panel.conn = None;
+            self.rt_panel.fields.clear();
+            self.rt_panel.error_message.clear();
+            self.rt_panel.error_remaining = 0;
+            self.rt_panel.write_feedback.clear();
+            self.rt_panel.write_feedback_remaining = 0;
+            self.rt_panel.search_query.clear();
+            self.rt_panel.jump_id.clear();
+            self.rt_panel.auto_refresh = true;
+            self.rt_panel.locked_fields.clear();
+            self.rt_panel.last_refresh = None;
+
+            self.save_panel.jump_id.clear();
+            self.backup_paths.clear();
+            self.backup_selection.clear();
+            self.status_message.clear();
+
             self.refresh_save_files();
 
             if factory::supports_realtime(&self.engine) {
@@ -252,10 +280,20 @@ impl AppState {
                     _ => {}
                 }
             }
+
+            if let Some(ref dir) = self.game_dir {
+                let dir = dir.clone();
+                self.recent_games.retain(|g| g != &dir);
+                self.recent_games.insert(0, dir);
+                self.recent_games.truncate(5);
+                if let Ok(mut cfg) = load_config() {
+                    cfg.recent_games = self.recent_games.clone();
+                    let _ = game_tool_core::config::save_config(&cfg);
+                }
+            }
         }
     }
 
-    #[allow(dead_code)]
     fn inject_plugin(&mut self) {
         let dir = match &self.game_dir {
             Some(d) => d.clone(),
@@ -281,7 +319,6 @@ impl AppState {
         }
     }
 
-    #[allow(dead_code)]
     fn rt_connect(&mut self) {
         self.rt_panel.error_message.clear();
         let port = self.rt_panel.port;
@@ -294,7 +331,6 @@ impl AppState {
         self.rt_panel.conn = Some(conn);
     }
 
-    #[allow(dead_code)]
     fn rt_disconnect(&mut self) {
         if let Some(ref conn) = self.rt_panel.conn {
             let _ = conn.cmd_tx.send(BridgeJob::Disconnect);
@@ -458,8 +494,15 @@ impl AppState {
             return;
         }
         let path = self.backup_paths.remove(index);
-        let _ = std::fs::remove_file(&path);
-        self.status_message = "\u{5907}\u{4efd}\u{5df2}\u{5220}\u{9664}".into();
+        match std::fs::remove_file(&path) {
+            Ok(()) => {
+                self.status_message = "\u{5907}\u{4efd}\u{5df2}\u{5220}\u{9664}".into();
+            }
+            Err(e) => {
+                self.backup_paths.insert(index, path);
+                self.status_message = format!("\u{5220}\u{9664}\u{5931}\u{8d25}: {}", e);
+            }
+        }
     }
 }
 
@@ -504,17 +547,16 @@ impl eframe::App for AppState {
                                 "\u{8bf7}\u{5148}\u{9009}\u{62e9}\u{6e38}\u{620f}\u{76ee}\u{5f55}\u{3002}",
                             );
                         } else {
-                            let actions = save_editor::render(
-                                ui,
-                                &mut self.save_panel,
-                                self.game_config.as_ref(),
-                            );
+                            let actions = save_editor::render(ui, self);
                             for action in actions {
                                 match action {
                                     save_editor::SaveAction::LoadSave => self.load_save_file(),
                                     save_editor::SaveAction::RefreshFiles => self.refresh_save_files(),
                                     save_editor::SaveAction::Save => {
                                         self.save_current();
+                                    }
+                                    save_editor::SaveAction::UndoDirty => {
+                                        self.load_save_file();
                                     }
                                 }
                             }
@@ -526,12 +568,142 @@ impl eframe::App for AppState {
                                 egui::Color32::from_rgb(139, 148, 158),
                                 "\u{8bf7}\u{5148}\u{9009}\u{62e9}\u{6e38}\u{620f}\u{76ee}\u{5f55}\u{3002}",
                             );
+                        } else if !crate::factory::supports_realtime(&self.engine) {
+                            ui.colored_label(
+                                crate::theme::colors::TEXT_SECONDARY,
+                                "\u{5f53}\u{524d}\u{5f15}\u{64ce}\u{4e0d}\u{652f}\u{6301}\u{5b9e}\u{65f6}\u{4fee}\u{6539}",
+                            );
                         } else {
+                            ui.horizontal(|ui| {
+                                ui.label("\u{4e3b}\u{673a}:");
+                                ui.add(
+                                    egui::TextEdit::singleline(&mut self.rt_panel.host)
+                                        .desired_width(100.0),
+                                );
+                                ui.label("\u{7aef}\u{53e3}:");
+                                ui.add(
+                                    egui::DragValue::new(&mut self.rt_panel.port)
+                                        .range(1024..=65535),
+                                );
+
+                                let is_connected = self
+                                    .rt_panel
+                                    .conn
+                                    .as_ref()
+                                    .map(|c| c.status == ConnectionStatus::Connected)
+                                    .unwrap_or(false);
+                                let is_connecting = self
+                                    .rt_panel
+                                    .conn
+                                    .as_ref()
+                                    .map(|c| c.status == ConnectionStatus::Connecting)
+                                    .unwrap_or(false);
+
+                                if is_connecting {
+                                    ui.colored_label(crate::theme::colors::WARNING, "\u{8fde}\u{63a5}\u{4e2d}...");
+                                } else if is_connected {
+                                    if ui.button("\u{25ce} \u{65ad}\u{5f00}").clicked() {
+                                        self.rt_disconnect();
+                                    }
+                                } else {
+                                    if ui.button("\u{25cf} \u{8fde}\u{63a5}").clicked() {
+                                        self.rt_connect();
+                                    }
+                                }
+
+                                if !self.rt_panel.plugin_installed {
+                                    if ui.button("\u{6ce8}\u{5165}\u{63d2}\u{4ef6}").clicked() {
+                                        self.inject_plugin();
+                                    }
+                                } else {
+                                    ui.colored_label(
+                                        crate::theme::colors::SUCCESS,
+                                        "\u{2713} \u{63d2}\u{4ef6}\u{5df2}\u{6ce8}\u{5165}",
+                                    );
+                                }
+                            });
+
+                            ui.horizontal(|ui| {
+                                let auto = self.rt_panel.auto_refresh;
+                                if ui
+                                    .selectable_label(
+                                        auto,
+                                        if auto {
+                                            "\u{25b6} \u{81ea}\u{52a8}\u{5237}\u{65b0}"
+                                        } else {
+                                            "\u{23f8} \u{6682}\u{505c}\u{5237}\u{65b0}"
+                                        },
+                                    )
+                                    .clicked()
+                                {
+                                    self.rt_panel.auto_refresh = !auto;
+                                }
+                                if ui
+                                    .button("\u{1f4e5} \u{624b}\u{52a8}\u{5237}\u{65b0}")
+                                    .clicked()
+                                {
+                                    self.rt_send_command(BridgeCommand::ReadAll);
+                                }
+                                ui.label("\u{95f4}\u{9694}:");
+                                egui::ComboBox::from_id_salt("refresh_interval")
+                                    .selected_text(format!(
+                                        "{}秒",
+                                        self.rt_panel.refresh_interval_secs
+                                    ))
+                                    .show_ui(ui, |ui| {
+                                        for secs in &[1u64, 2, 3, 5] {
+                                            if ui
+                                                .selectable_label(
+                                                    self.rt_panel.refresh_interval_secs == *secs,
+                                                    format!("{}秒", secs),
+                                                )
+                                                .clicked()
+                                            {
+                                                self.rt_panel.refresh_interval_secs = *secs;
+                                                self.rt_panel.last_refresh = None;
+                                            }
+                                        }
+                                    });
+                            });
+
+                            if !self.rt_panel.error_message.is_empty() {
+                                ui.colored_label(
+                                    crate::theme::colors::ERROR,
+                                    &self.rt_panel.error_message,
+                                );
+                            }
+                            if !self.rt_panel.write_feedback.is_empty() {
+                                ui.colored_label(
+                                    crate::theme::colors::SUCCESS,
+                                    &self.rt_panel.write_feedback,
+                                );
+                            }
+
+                            ui.separator();
+
+                            ui.horizontal(|ui| {
+                                ui.label("\u{1f50d}");
+                                ui.add(
+                                    egui::TextEdit::singleline(&mut self.rt_panel.search_query)
+                                        .hint_text("\u{641c}\u{7d22}\u{5b57}\u{6bb5}...")
+                                        .desired_width(150.0),
+                                );
+                                if !self.rt_panel.search_query.is_empty()
+                                    && ui.button("\u{2715}").clicked()
+                                {
+                                    self.rt_panel.search_query.clear();
+                                }
+                                ui.separator();
+                                ui.label("\u{8df3}\u{8f6c} ID:");
+                                ui.text_edit_singleline(&mut self.rt_panel.jump_id);
+                            });
+
+                            ui.separator();
+
                             let actions = realtime_editor::render(
                                 ui,
                                 &mut self.rt_panel,
-                                &self.engine,
-                                &self.game_dir,
+                                &self.save_panel.fields,
                             );
                             for action in actions {
                                 match action {
@@ -548,6 +720,18 @@ impl eframe::App for AppState {
                                             self.rt_panel.locked_fields.insert(fid);
                                         }
                                     }
+                                    realtime_editor::RtAction::CopyToSave(fid) => {
+                                        if let Some(rt_field) =
+                                            self.rt_panel.fields.iter().find(|f| f.field_id == fid)
+                                        {
+                                            if let Some(save_field) = self.save_panel.fields.iter_mut().find(|f| f.field_id == fid) {
+                                                save_field.save_value = rt_field.live_value.clone();
+                                                save_field.dirty = true;
+                                            }
+                                        }
+                                        self.save_panel.dirty_count =
+                                            self.save_panel.fields.iter().filter(|f| f.dirty).count();
+                                    }
                                 }
                             }
                         }
@@ -557,13 +741,32 @@ impl eframe::App for AppState {
                         for action in actions {
                             match action {
                                 backup::BackupAction::CreateBackup => self.create_backup(),
-                                backup::BackupAction::Restore(i) => self.restore_backup(i),
-                                backup::BackupAction::Delete(i) => self.delete_backup(i),
+                                backup::BackupAction::Restore(i) => {
+                                    self.show_confirm_dialog = Some(ConfirmDialog {
+                                        title: "\u{6062}\u{590d}\u{5907}\u{4efd}".into(),
+                                        message: "\u{786e}\u{5b9a}\u{7528}\u{6b64}\u{5907}\u{4efd}\u{8986}\u{76d6}\u{5f53}\u{524d}\u{5b58}\u{6863}\u{ff1f}\u{6b64}\u{64cd}\u{4f5c}\u{4e0d}\u{53ef}\u{64a4}\u{9500}\u{3002}".into(),
+                                        on_confirm: ConfirmAction::RestoreBackup(i),
+                                    });
+                                }
+                                backup::BackupAction::Delete(i) => {
+                                    self.show_confirm_dialog = Some(ConfirmDialog {
+                                        title: "\u{5220}\u{9664}\u{5907}\u{4efd}".into(),
+                                        message: "\u{786e}\u{5b9a}\u{5220}\u{9664}\u{6b64}\u{5907}\u{4efd}\u{6587}\u{4ef6}\u{ff1f}".into(),
+                                        on_confirm: ConfirmAction::DeleteSingleBackup(i),
+                                    });
+                                }
+                                backup::BackupAction::BatchDelete(indices) => {
+                                    self.show_confirm_dialog = Some(ConfirmDialog {
+                                        title: "\u{6279}\u{91cf}\u{5220}\u{9664}".into(),
+                                        message: format!("\u{786e}\u{5b9a}\u{5220}\u{9664}\u{9009}\u{4e2d}\u{7684} {} \u{4e2a}\u{5907}\u{4efd}\u{6587}\u{4ef6}\u{ff1f}", indices.len()),
+                                        on_confirm: ConfirmAction::DeleteBackups(indices),
+                                    });
+                                }
                             }
                         }
                     }
                     TabMode::Toolbox => {
-                        toolbox::render(ui, self);
+                        toolbox::render(ui, &mut self.toolbox);
                     }
                     TabMode::Settings => {
                         let actions = settings::render(ui, self);
@@ -581,6 +784,16 @@ impl eframe::App for AppState {
                                     if self.rt_panel.conn.is_some() {
                                         self.status_message = "\u{7aef}\u{53e3}\u{5df2}\u{66f4}\u{6539}\u{ff0c}\u{8bf7}\u{65ad}\u{5f00}\u{540e}\u{91cd}\u{65b0}\u{8fde}\u{63a5}\u{4ee5}\u{751f}\u{6548}\u{3002}".into();
                                     }
+                                }
+                                settings::SettingsAction::RemoveRecentGame(path) => {
+                                    self.recent_games.retain(|g| g != &path);
+                                }
+                                settings::SettingsAction::ClearRecentGames => {
+                                    self.show_confirm_dialog = Some(ConfirmDialog {
+                                        title: "\u{6e05}\u{9664}\u{8bb0}\u{5f55}".into(),
+                                        message: "\u{786e}\u{5b9a}\u{6e05}\u{9664}\u{6240}\u{6709}\u{6700}\u{8fd1}\u{6e38}\u{620f}\u{8bb0}\u{5f55}\u{ff1f}".into(),
+                                        on_confirm: ConfirmAction::ClearRecentGames,
+                                    });
                                 }
                             }
                         }
@@ -615,7 +828,61 @@ impl eframe::App for AppState {
                                 self.save_panel.panel_mode =
                                     factory::engine_to_panel_mode(&self.engine);
                                 self.save_panel.readonly = factory::is_readonly(&self.engine);
+                                self.save_panel.selected_save = None;
+                                self.save_panel.save_data = None;
+                                self.save_panel.summary = None;
+                                self.save_panel.fields.clear();
+                                self.save_panel.dirty_count = 0;
+                                self.save_panel.selected_category = None;
+                                self.save_panel.search_query.clear();
+                                self.save_panel.jump_id.clear();
+
+                                if let Some(ref conn) = self.rt_panel.conn {
+                                    let _ = conn.cmd_tx.send(BridgeJob::Disconnect);
+                                }
+                                self.rt_panel.conn = None;
+                                self.rt_panel.fields.clear();
+                                self.rt_panel.plugin_installed = false;
+                                self.rt_panel.error_message.clear();
+                                self.rt_panel.error_remaining = 0;
+                                self.rt_panel.write_feedback.clear();
+                                self.rt_panel.write_feedback_remaining = 0;
+                                self.rt_panel.search_query.clear();
+                                self.rt_panel.jump_id.clear();
+                                self.rt_panel.auto_refresh = true;
+                                self.rt_panel.locked_fields.clear();
+                                self.rt_panel.last_refresh = None;
+
+                                if factory::supports_realtime(&self.engine) {
+                                    match self.engine {
+                                        EngineType::RpgMakerMv | EngineType::RpgMakerMz | EngineType::NwJs => {
+                                            self.rt_panel.plugin_installed = game_tool_rpgmaker::tcp::is_plugin_installed(&path);
+                                        }
+                                        EngineType::RenPy => {
+                                            self.rt_panel.plugin_installed = game_tool_renpy::bridge::is_plugin_installed(&path);
+                                        }
+                                        _ => {}
+                                    }
+                                }
+
+                                self.backup_paths.clear();
+                                self.backup_selection.clear();
+                                self.status_message.clear();
+
                                 self.refresh_save_files();
+
+                                if let Some(ref dir) = self.game_dir {
+                                    let dir = dir.clone();
+                                    self.recent_games.retain(|g| g != &dir);
+                                    self.recent_games.insert(0, dir);
+                                    self.recent_games.truncate(5);
+                                    if let Ok(mut cfg) = load_config() {
+                                        cfg.recent_games = self.recent_games.clone();
+                                        let _ = game_tool_core::config::save_config(&cfg);
+                                    }
+                                }
+
+                                self.active_tab = TabMode::SaveEditor;
                             }
                         }
                     }
@@ -678,9 +945,6 @@ impl eframe::App for AppState {
                         ui.horizontal(|ui| {
                             if ui.button("\u{786e}\u{8ba4}").clicked() {
                                 match &dlg.on_confirm {
-                                    ConfirmAction::DiscardAndSwitch => {
-                                        self.switch_game();
-                                    }
                                     ConfirmAction::DeleteBackups(indices) => {
                                         let mut sorted: Vec<usize> = indices.clone();
                                         sorted.sort_by(|a, b| b.cmp(a));

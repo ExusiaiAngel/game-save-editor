@@ -33,7 +33,7 @@ fn test_appstate_new_none_defaults() {
     assert_eq!(state.rt_panel.search_query, "");
     assert_eq!(state.rt_panel.jump_id, "");
     assert!(state.rt_panel.auto_refresh);
-    assert_eq!(state.rt_panel.refresh_timer, 0);
+    assert_eq!(state.rt_panel.refresh_interval_secs, 3);
     assert!(state.rt_panel.locked_fields.is_empty());
 }
 

@@ -22,19 +22,19 @@ impl Theme {
             Color32::from_rgb(255, 255, 255)
         };
         let panel_bg = if self.dark_mode {
-            Color32::from_rgb(22, 27, 34)
+            colors::PANEL_DARK
         } else {
-            Color32::from_rgb(246, 248, 250)
+            colors::PANEL_LIGHT
         };
         let text = if self.dark_mode {
-            Color32::from_rgb(201, 209, 217)
+            colors::TEXT
         } else {
-            Color32::from_rgb(36, 41, 47)
+            colors::TEXT_LIGHT
         };
         let accent = if self.dark_mode {
-            Color32::from_rgb(88, 166, 255)
+            colors::ACCENT
         } else {
-            Color32::from_rgb(9, 105, 218)
+            colors::ACCENT_LIGHT
         };
 
         visuals.panel_fill = panel_bg;
@@ -46,9 +46,9 @@ impl Theme {
         visuals.widgets.inactive.bg_fill = panel_bg;
         visuals.widgets.inactive.fg_stroke = Stroke::new(1.0, text);
         visuals.widgets.hovered.bg_fill = if self.dark_mode {
-            Color32::from_rgb(33, 38, 45)
+            colors::HOVER_DARK
         } else {
-            Color32::from_rgb(234, 238, 242)
+            colors::HOVER_LIGHT
         };
         visuals.widgets.active.bg_fill = accent;
 
@@ -73,11 +73,15 @@ pub mod colors {
     use egui::Color32;
 
     pub const PANEL_DARK: Color32 = Color32::from_rgb(22, 27, 34);
+    pub const PANEL_LIGHT: Color32 = Color32::from_rgb(246, 248, 250);
     pub const HOVER_DARK: Color32 = Color32::from_rgb(33, 38, 45);
+    pub const HOVER_LIGHT: Color32 = Color32::from_rgb(234, 238, 242);
     pub const TEXT: Color32 = Color32::from_rgb(201, 209, 217);
+    pub const TEXT_LIGHT: Color32 = Color32::from_rgb(36, 41, 47);
     pub const TEXT_SECONDARY: Color32 = Color32::from_rgb(139, 148, 158);
     pub const TEXT_DISABLED: Color32 = Color32::from_rgb(72, 79, 88);
     pub const ACCENT: Color32 = Color32::from_rgb(88, 166, 255);
+    pub const ACCENT_LIGHT: Color32 = Color32::from_rgb(9, 105, 218);
     pub const SUCCESS: Color32 = Color32::from_rgb(63, 185, 80);
     pub const WARNING: Color32 = Color32::from_rgb(210, 153, 34);
     pub const ERROR: Color32 = Color32::from_rgb(248, 81, 73);

@@ -6,9 +6,10 @@ pub enum BackupAction {
     Restore(usize),
     Delete(usize),
     CreateBackup,
+    BatchDelete(Vec<usize>),
 }
 
-pub fn render(ui: &mut Ui, state: &AppState) -> Vec<BackupAction> {
+pub fn render(ui: &mut Ui, state: &mut AppState) -> Vec<BackupAction> {
     let mut actions = Vec::new();
 
     ui.heading("\u{1f5c4} \u{5907}\u{4efd}\u{7ba1}\u{7406}");
@@ -65,28 +66,52 @@ pub fn render(ui: &mut Ui, state: &AppState) -> Vec<BackupAction> {
         ));
         ui.add_space(4.0);
 
-        for (i, bp) in state.backup_paths.iter().enumerate() {
-            let name = std::path::Path::new(bp)
-                .file_name()
-                .and_then(|n| n.to_str())
-                .unwrap_or(bp);
+        egui::Grid::new("backup_grid")
+            .striped(true)
+            .min_col_width(20.0)
+            .show(ui, |ui| {
+                for (i, bp) in state.backup_paths.iter().enumerate() {
+                    let name = std::path::Path::new(bp)
+                        .file_name()
+                        .and_then(|n| n.to_str())
+                        .unwrap_or(bp);
 
-            let size = std::fs::metadata(bp).map(|m| m.len()).unwrap_or(0);
-            let size_str = if size > 1024 {
-                format!("{} KB", size / 1024)
-            } else {
-                format!("{} B", size)
-            };
+                    let size = std::fs::metadata(bp).map(|m| m.len()).unwrap_or(0);
+                    let size_str = if size > 1024 {
+                        format!("{} KB", size / 1024)
+                    } else {
+                        format!("{} B", size)
+                    };
 
-            ui.horizontal(|ui| {
-                ui.label(format!("\u{1f4c4} {}", name));
-                ui.colored_label(colors::TEXT_SECONDARY, size_str);
-                ui.separator();
-                if ui.button("\u{267b} \u{6062}\u{590d}").clicked() {
-                    actions.push(BackupAction::Restore(i));
+                    let mut selected = state.backup_selection.contains(&i);
+                    if ui.checkbox(&mut selected, "").changed() {
+                        if selected {
+                            state.backup_selection.insert(i);
+                        } else {
+                            state.backup_selection.remove(&i);
+                        }
+                    }
+                    ui.label(format!("\u{1f4c4} {}", name));
+                    ui.colored_label(colors::TEXT_SECONDARY, size_str);
+
+                    if ui.button("\u{267b} \u{6062}\u{590d}").clicked() {
+                        actions.push(BackupAction::Restore(i));
+                    }
+                    if ui.button("\u{1f5d1} \u{5220}\u{9664}").clicked() {
+                        actions.push(BackupAction::Delete(i));
+                    }
+                    ui.end_row();
                 }
-                if ui.button("\u{1f5d1} \u{5220}\u{9664}").clicked() {
-                    actions.push(BackupAction::Delete(i));
+            });
+
+        let sel_count = state.backup_selection.len();
+        if sel_count > 0 {
+            ui.add_space(4.0);
+            ui.horizontal(|ui| {
+                ui.label(format!("\u{5df2}\u{9009} {} \u{9879}", sel_count));
+                if ui.button("\u{1f5d1}\u{6279}\u{91cf}\u{5220}\u{9664}").clicked() {
+                    let indices: Vec<usize> = state.backup_selection.drain().collect();
+                    actions.push(BackupAction::BatchDelete(indices));
                 }
             });
         }

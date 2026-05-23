@@ -23,6 +23,8 @@ pub struct AppConfig {
     pub language: String,
     pub plugin_auto_connect: bool,
     pub dark_mode: bool,
+    #[serde(default)]
+    pub recent_games: Vec<String>,
 }
 
 impl Default for AppConfig {
@@ -34,6 +36,7 @@ impl Default for AppConfig {
             language: "zh-CN".to_string(),
             plugin_auto_connect: true,
             dark_mode: true,
+            recent_games: Vec::new(),
         }
     }
 }
@@ -265,6 +268,7 @@ plugin_auto_connect = false
             language: "ja-JP".to_string(),
             plugin_auto_connect: false,
             dark_mode: false,
+            recent_games: Vec::new(),
         };
 
         save_config_to(&config, test_path).unwrap();

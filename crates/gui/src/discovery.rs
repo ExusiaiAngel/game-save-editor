@@ -38,14 +38,14 @@ pub fn find_save_files(game_dir: &str, format: &dyn ISaveFormat) -> Vec<String> 
                 let path = entry.path();
                 if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
                     if name.contains(".bak.")
-                        || name.ends_with(".bak")
-                        || name == "config.rpgsave"
-                        || name == "global.rpgsave"
+                        || name.to_lowercase().ends_with(".bak")
+                        || name.to_lowercase() == "config.rpgsave"
+                        || name.to_lowercase() == "global.rpgsave"
                     {
                         continue;
                     }
                     for ext in &exts {
-                        if name.ends_with(ext.as_str()) {
+                        if name.to_lowercase().ends_with(&ext.to_lowercase()) {
                             let canonical = path.to_string_lossy().to_string();
                             if seen.insert(canonical.clone()) {
                                 files.push(canonical);

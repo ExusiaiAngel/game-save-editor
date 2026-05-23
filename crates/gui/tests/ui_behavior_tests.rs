@@ -13,7 +13,6 @@ use std::collections::HashSet;
 #[test]
 fn test_switch_game_disconnects_bridge() {
     let state = AppState::new(Some("nonexistent_path".into()));
-    factory::supports_realtime(&EngineType::Unknown);
     assert!(state.rt_panel.conn.is_none());
 }
 

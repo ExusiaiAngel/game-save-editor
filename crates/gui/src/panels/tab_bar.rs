@@ -1,6 +1,6 @@
 use crate::state::TabMode;
 use crate::theme;
-use egui::{vec2, Color32, Ui};
+use egui::{vec2, Ui};
 
 pub enum TabAction {
     SwitchTab(TabMode),
@@ -30,65 +30,32 @@ pub fn render(ui: &mut Ui, active_tab: TabMode, has_game: bool, supports_rt: boo
             };
 
             let label = format!("{} {}", theme::tab_icon(tab), theme::tab_name(tab));
-            let text_color = if enabled {
-                if selected {
-                    theme::colors::ACCENT
-                } else {
-                    theme::colors::TEXT
-                }
-            } else {
-                theme::colors::TEXT_DISABLED
-            };
 
-            let galley = ui.painter().layout_no_wrap(
-                label.clone(),
-                egui::FontId::proportional(13.0),
-                text_color,
-            );
-            let padding = vec2(16.0, 8.0);
-            let desired_size = galley.size() + padding * 2.0;
+            let resp = ui
+                .add_enabled_ui(enabled, |ui| ui.selectable_label(selected, label))
+                .inner;
 
-            let (_, rect) = ui.allocate_space(desired_size);
-            let resp = ui.interact(rect, ui.next_auto_id(), egui::Sense::click());
-
-            if resp.hovered() && enabled {
-                ui.painter().rect_filled(
-                    rect,
-                    0.0,
-                    if selected {
-                        Color32::from_rgba_premultiplied(
-                            theme::colors::ACCENT.r(),
-                            theme::colors::ACCENT.g(),
-                            theme::colors::ACCENT.b(),
-                            20,
-                        )
-                    } else {
-                        theme::colors::HOVER_DARK
-                    },
-                );
-            } else if selected {
-                ui.painter().rect_filled(
-                    rect,
-                    0.0,
-                    Color32::from_rgba_premultiplied(
-                        theme::colors::ACCENT.r(),
-                        theme::colors::ACCENT.g(),
-                        theme::colors::ACCENT.b(),
-                        20,
-                    ),
-                );
+            if selected {
                 let underline = egui::Rect::from_min_size(
-                    rect.left_bottom() - vec2(0.0, 3.0),
-                    vec2(rect.width(), 3.0),
+                    egui::pos2(resp.rect.left(), resp.rect.bottom()),
+                    egui::vec2(resp.rect.width(), 2.0),
                 );
-                ui.painter().rect_filled(underline, 0.0, theme::colors::ACCENT);
+                ui.painter()
+                    .rect_filled(underline, 0.0, theme::colors::ACCENT);
             }
-
-            let text_pos = rect.center();
-            ui.painter().galley(text_pos, galley, text_color);
 
             if resp.clicked() && enabled {
                 actions.push(TabAction::SwitchTab(*tab));
+            }
+
+            if !enabled {
+                let reason = match tab {
+                    TabMode::RealtimeEditor if !supports_rt => {
+                        "\u{5f53}\u{524d}\u{5f15}\u{64ce}\u{4e0d}\u{652f}\u{6301}\u{5b9e}\u{65f6}\u{4fee}\u{6539}"
+                    }
+                    _ => "\u{8bf7}\u{5148}\u{9009}\u{62e9}\u{6e38}\u{620f}\u{76ee}\u{5f55}",
+                };
+                resp.on_hover_text(reason);
             }
         }
 

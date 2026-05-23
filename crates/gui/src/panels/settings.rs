@@ -5,6 +5,8 @@ use egui::Ui;
 pub enum SettingsAction {
     ToggleDarkMode,
     SetPort(u16),
+    RemoveRecentGame(String),
+    ClearRecentGames,
 }
 
 pub fn render(ui: &mut Ui, state: &AppState) -> Vec<SettingsAction> {
@@ -41,6 +43,54 @@ pub fn render(ui: &mut Ui, state: &AppState) -> Vec<SettingsAction> {
                     actions.push(SettingsAction::SetPort(port));
                 }
             });
+        });
+
+        ui.add_space(8.0);
+
+        ui.collapsing("\u{6700}\u{8fd1}\u{6e38}\u{620f}", |ui| {
+            if state.recent_games.is_empty() {
+                ui.colored_label(
+                    colors::TEXT_SECONDARY,
+                    "\u{6682}\u{65e0}\u{6700}\u{8fd1}\u{8bb0}\u{5f55}\u{3002}",
+                );
+            } else {
+                for path in &state.recent_games {
+                    ui.horizontal(|ui| {
+                        ui.label(path);
+                        if ui.button("\u{d7} \u{79fb}\u{9664}").clicked() {
+                            actions.push(SettingsAction::RemoveRecentGame(path.clone()));
+                        }
+                    });
+                }
+            }
+            if !state.recent_games.is_empty() {
+                ui.add_space(4.0);
+                if ui.button("\u{1f5d1} \u{6e05}\u{9664}\u{5168}\u{90e8}\u{8bb0}\u{5f55}").clicked() {
+                    actions.push(SettingsAction::ClearRecentGames);
+                }
+            }
+        });
+
+        ui.add_space(8.0);
+
+        ui.collapsing("\u{914d}\u{7f6e}", |ui| {
+            if let Some(config_dir) = dirs_next::config_dir() {
+                let config_path = config_dir.join("GameSaveEditor");
+                ui.label(format!(
+                    "\u{914d}\u{7f6e}\u{76ee}\u{5f55}: {}",
+                    config_path.display()
+                ));
+                ui.horizontal(|ui| {
+                    if ui.button("\u{1f4c2} \u{6253}\u{5f00}\u{76ee}\u{5f55}").clicked() {
+                        let _ = open::that(&config_path);
+                    }
+                });
+            } else {
+                ui.colored_label(
+                    colors::TEXT_SECONDARY,
+                    "\u{65e0}\u{6cd5}\u{83b7}\u{53d6}\u{914d}\u{7f6e}\u{76ee}\u{5f55}\u{3002}",
+                );
+            }
         });
 
         ui.add_space(8.0);

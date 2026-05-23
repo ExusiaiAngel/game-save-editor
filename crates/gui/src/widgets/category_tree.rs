@@ -134,8 +134,11 @@ pub fn parse_range(selected: &Option<String>) -> (Option<String>, Option<(usize,
             if let Some(dash) = range_str.find('-') {
                 let start: usize = range_str[..dash].parse().unwrap_or(0);
                 let end: usize = range_str[dash + 1..].parse().unwrap_or(0);
-                return (Some(cat), Some((start, end)));
+                if start <= end {
+                    return (Some(cat), Some((start, end)));
+                }
             }
+            return (Some(cat), None);
         }
         (Some(sel.clone()), None)
     } else {
@@ -225,7 +228,7 @@ mod tests {
     #[test]
     fn test_parse_range_colon_no_dash() {
         let (cat, range) = parse_range(&Some("switch:50".into()));
-        assert_eq!(cat, Some("switch:50".into()));
+        assert_eq!(cat, Some("switch".into()));
         assert!(range.is_none());
     }
 

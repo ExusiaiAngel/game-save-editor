@@ -14,6 +14,8 @@ egui.workspace = true
 rfd.workspace = true
 serde_json.workspace = true
 serde.workspace = true
+dirs-next = "2"
+open = "5"
 
 game-tool-core = { path = "../core" }
 game-tool-rpgmaker = { path = "../engines/rpgmaker" }

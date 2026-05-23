@@ -30,7 +30,6 @@ pub enum ConnectionStatus {
 }
 
 pub enum ConfirmAction {
-    DiscardAndSwitch,
     DeleteBackups(Vec<usize>),
     RestoreBackup(usize),
     ClearRecentGames,
@@ -62,6 +61,14 @@ pub struct RealtimeConnection {
     pub status: ConnectionStatus,
 }
 
+pub struct ToolboxState {
+    pub lz_input: String,
+    pub lz_output: String,
+    pub lz_error: String,
+    pub b64_input: String,
+    pub b64_output: String,
+}
+
 pub struct SavePanelState {
     pub format: Option<Box<dyn ISaveFormat>>,
     pub save_files: Vec<String>,
@@ -90,7 +97,6 @@ pub struct RtPanelState {
     pub search_query: String,
     pub jump_id: String,
     pub auto_refresh: bool,
-    pub refresh_timer: u32,
     pub locked_fields: HashSet<String>,
     pub refresh_interval_secs: u64,
     pub last_refresh: Option<std::time::Instant>,
@@ -105,8 +111,10 @@ pub struct AppState {
     pub dark_mode: bool,
     pub recent_games: Vec<String>,
     pub backup_paths: Vec<String>,
+    pub backup_selection: HashSet<usize>,
     pub save_panel: SavePanelState,
     pub rt_panel: RtPanelState,
+    pub toolbox: ToolboxState,
     pub status_message: String,
     pub show_unsaved_dialog: bool,
     pub show_confirm_dialog: Option<ConfirmDialog>,
@@ -177,7 +185,6 @@ mod tests {
 
     #[test]
     fn test_confirm_action_constructible() {
-        let _discard = ConfirmAction::DiscardAndSwitch;
         let _delete = ConfirmAction::DeleteBackups(vec![0]);
         let _restore = ConfirmAction::RestoreBackup(0);
         let _clear = ConfirmAction::ClearRecentGames;
